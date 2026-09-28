@@ -16,17 +16,15 @@
 """
 from __future__ import annotations
 from pathlib import Path
-import sys
 
 import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
+ROOT = Path(__file__).resolve().parents[1]
 
-from src.sentiment.vader_cn import analyze as vader_analyze
-from src.sentiment.nb_model import train_and_evaluate, predict_proba
-from src.preprocess.stopwords import load_stopwords
+from services.sentiment.vader_cn import analyze as vader_analyze
+from services.sentiment.nb_model import train_and_evaluate, predict_proba
+from services.preprocess.stopwords import load_stopwords
 
 PROCESSED = ROOT / "data" / "processed"
 OUTPUT = ROOT / "data" / "processed" / "sentiment_results.csv"

@@ -10,3 +10,4 @@ outputs/results/*.csv
 outputs/reports/*
 .pytest_cache/
 .streamlit/
+services/.mplconfig/

@@ -22,7 +22,7 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = ROOT / "config" / "settings.yaml"
 OUTPUT_PATH = ROOT / "data" / "raw" / "comments_raw.csv"
 

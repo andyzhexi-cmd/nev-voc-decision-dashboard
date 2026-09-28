@@ -1,0 +1,106 @@
+# =============================================================
+# theme.yaml — 企业级设计令牌（Design Tokens）
+# ui/styles 与 ui/components 统一读取，禁止在视图中硬编码颜色
+# =============================================================
+
+brand:
+  name: "智评车行"
+  tagline: "新能源汽车用户评论分析与产品改进决策平台"
+  initials: "智评"
+
+# 语义色板（两个主题共用语义名，取值不同）
+palette:
+  dark:
+    bg: "#070B14"            # 页面底色
+    bg_elevated: "#0D1322"    # 侧边栏/顶栏
+    surface: "rgba(255,255,255,0.04)"   # 卡片
+    surface_hover: "rgba(255,255,255,0.07)"
+    border: "rgba(255,255,255,0.08)"
+    border_strong: "rgba(255,255,255,0.16)"
+    text: "#EEF1F8"
+    text_secondary: "rgba(238,241,248,0.62)"
+    text_muted: "rgba(238,241,248,0.42)"
+    primary: "#6366F1"        # 靛蓝
+    primary_soft: "rgba(99,102,241,0.16)"
+    accent: "#22D3EE"         # 青
+    grid: "rgba(255,255,255,0.07)"
+    chart_axis: "rgba(238,241,248,0.55)"
+    positive: "#34D399"
+    negative: "#F87171"
+    warning: "#FBBF24"
+    info: "#60A5FA"
+    shadow: "0 18px 40px rgba(0,0,0,0.45)"
+    glass: "blur(18px)"
+  light:
+    bg: "#F5F7FB"
+    bg_elevated: "#FFFFFF"
+    surface: "#FFFFFF"
+    surface_hover: "#F1F4FA"
+    border: "rgba(15,23,42,0.09)"
+    border_strong: "rgba(15,23,42,0.18)"
+    text: "#0F172A"
+    text_secondary: "rgba(15,23,42,0.66)"
+    text_muted: "rgba(15,23,42,0.45)"
+    primary: "#4F46E5"
+    primary_soft: "rgba(79,70,229,0.12)"
+    accent: "#0891B2"
+    grid: "rgba(15,23,42,0.07)"
+    chart_axis: "rgba(15,23,42,0.6)"
+    positive: "#059669"
+    negative: "#DC2626"
+    warning: "#D97706"
+    info: "#2563EB"
+    shadow: "0 14px 32px rgba(15,23,42,0.10)"
+    glass: "blur(18px)"
+
+# 六大属性语义色（跨视图一致：雷达/热力/桑基/条形统一用色）
+attribute_colors:
+  外观: "#8B5CF6"
+  内饰: "#6366F1"
+  空间: "#3B82F6"
+  续航: "#22D3EE"
+  性价比: "#34D399"
+  舒适性: "#FBBF24"
+
+# 竞品品牌色（用于品牌对比图）
+brand_colors:
+  特斯拉: "#E82127"
+  比亚迪: "#3E7BFA"
+  小鹏:   "#00A7A0"
+  理想:   "#12B76A"
+  蔚来:   "#2E90FA"
+
+# 情感极性色
+sentiment_colors:
+  positive: "#34D399"
+  neutral: "#94A3B8"
+  negative: "#F87171"
+  diverging_scale: "RdYlGn"
+
+# 排版
+typography:
+  font_family: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif'
+  mono_family: '"SF Mono", ui-monospace, Menlo, monospace'
+  h1: 30px
+  h2: 20px
+  h3: 16px
+  body: 14px
+  caption: 12.5px
+  kpi_value: 30px
+
+# 几何
+geometry:
+  radius_sm: 8px
+  radius_md: 14px
+  radius_lg: 20px
+  card_padding: 20px 22px
+  page_max_width: 1600px
+  sidebar_width: 244px
+
+# 图表规范（Plotly 统一主题）
+chart:
+  height_default: 340
+  height_large: 460
+  margin: {l: 44, r: 20, t: 34, b: 40}
+  font_size: 12.5
+  hovermode: "closest"

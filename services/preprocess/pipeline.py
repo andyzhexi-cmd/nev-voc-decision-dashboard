@@ -12,16 +12,14 @@
 from __future__ import annotations
 from pathlib import Path
 import re
-import sys
 
 import pandas as pd
 import jieba
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
+ROOT = Path(__file__).resolve().parents[1]
 
-from src.preprocess.clean import clean_text
-from src.preprocess.stopwords import load_stopwords
+from services.preprocess.clean import clean_text
+from services.preprocess.stopwords import load_stopwords
 
 RAW = ROOT / "data" / "raw" / "comments_raw.csv"
 OUT = ROOT / "data" / "processed" / "comments_cleaned.csv"

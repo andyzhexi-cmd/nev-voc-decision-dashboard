@@ -1,10 +1,35 @@
-streamlit
-pandas
-numpy
-scikit-learn
-jieba
-matplotlib
-plotly
-openpyxl
-pyyaml
-wordcloud
+# 智评车行 · 决策看板依赖清单
+# 版本取自工作区 venv（Python 3.9.6）实测；完整可复现锁定见 requirements.lock.txt
+# 安装： pip install -r requirements.txt
+# 所有依赖仅安装到工作区虚拟环境（产品实现/vene），不改动系统配置
+
+# ---------- Web / UI ----------
+streamlit==1.50.0
+streamlit-option-menu==0.4.0            # 侧栏导航
+streamlit-shadcn-ui==0.1.19             # 风格化卡片/徽章
+streamlit-echarts==0.4.0                # ECharts 桑基图 / 旭日图
+plotly==7.1.0                           # 主力图表（雷达 / 热力 / 散点 / 趋势）
+
+# ---------- 数据 / 科学计算 ----------
+pandas==2.3.3
+numpy==2.0.2
+scipy==1.13.1
+scikit-learn==1.6.1                     # 聚类（KMeans / 轮廓系数）
+pyarrow==21.0.0                         # parquet 中间层
+PyYAML==6.0.3                           # config/baselines.yaml · config/theme.yaml
+
+# ---------- NLP / 批处理流水线 ----------
+jieba==0.42.1                           # 中文分词
+matplotlib==3.9.4                       # 聚类诊断图（elbow / 轮廓 / 聚类分布）
+
+# ---------- 报告导出 ----------
+pypdf==6.19.0                           # 论文表抽取 / PDF 校验
+reportlab==5.0.1                        # PDF 报告
+openpyxl==3.1.5                         # Excel 报告
+wordcloud==1.9.6                        # 词云（可选，缺失时自动降级为词频条形图）
+Pillow==11.3.0
+
+# ---------- 工程 ----------
+watchdog==6.0.0                         # Streamlit 文件监视
+pytest==8.4.2                           # 单元测试
+eval-type-backport==0.4.0               # Python 3.9 支持 `X | None` 运行时注解（pydantic 需要）

@@ -3,7 +3,7 @@
 """
 from pathlib import Path
 
-ASSETS = Path(__file__).resolve().parents[2] / "assets"
+ASSETS = Path(__file__).resolve().parents[1] / "assets"
 COMBINED = ASSETS / "combined_stopwords.txt"
 BUSINESS = ASSETS / "business_stopwords.txt"
 

@@ -12,7 +12,6 @@
 """
 from __future__ import annotations
 from pathlib import Path
-import sys
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -23,8 +22,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
+ROOT = Path(__file__).resolve().parents[1]
 
 CLEAN = ROOT / "data" / "processed" / "comments_cleaned.csv"
 FIG_DIR = ROOT / "outputs" / "figures"

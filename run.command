@@ -8,7 +8,7 @@ STREAMLIT="./vene/bin/streamlit"
 
 if [ ! -f "data/raw/comments_raw.csv" ]; then
   echo "首次启动：正在生成仿真评论数据..."
-  $PY -m src.data_ingest.mock_generator
+  $PY -m services.data_ingest.mock_generator
 fi
 
 echo "正在启动智评车行看板（浏览器将自动打开）..."
