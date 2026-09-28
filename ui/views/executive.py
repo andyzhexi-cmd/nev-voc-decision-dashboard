@@ -157,6 +157,13 @@ def _audit_section() -> None:
     from core.algorithm.audit import audit_summary
     s = audit_summary(findings)
     st.markdown("")
+    try:
+        import streamlit_shadcn_ui as ui_s
+        ui_s.alert(title="审计口径声明",
+                   description="以下偏差来自论文数据本身（判断矩阵、表间一致性），系统如实列示、不做静默修正。",
+                   class_name="warning", key="dsh_audit_notice")
+    except Exception:
+        callout("审计口径声明：以下偏差来自论文数据本身，系统如实列示、不做静默修正。")
     c1, c2, c3, c4 = st.columns([1, 1, 1, 3])
     with c1:
         status_chip(f"✓ 通过 {s['pass']}", "ok")

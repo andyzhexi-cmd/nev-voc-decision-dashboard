@@ -42,7 +42,7 @@ from ui.components import (
     sunburst,
     trend_line,
 )
-from ui.theme import attribute_colors, palette
+from ui.theme import attribute_colors, palette, tokens
 
 # 评论明细表的列名中文化（仅影响展示，不改动契约返回值）
 _COLUMN_LABEL = {
@@ -157,24 +157,44 @@ def _kpi_cards(ov: pd.DataFrame, k: dict) -> list[dict]:
     ]
 
 
-def _highlight(text: str, words: list[str]) -> str:
+def _mark_style(mode: str) -> str:
+    """高亮底色取自主题令牌 palette.<mode>.warning（视图内不硬编码颜色）。"""
+    pal = tokens().get("palette", {}) or {}
+    key = "light" if mode == "light" else "dark"
+    sources = [pal.get(key) or {}, pal.get("dark") or {}, attribute_colors()]
+    for src in sources:
+        raw = src.get("warning") or src.get("舒适性")
+        value = str(raw or "").lstrip("#")
+        if len(value) != 6:
+            continue
+        try:
+            r, g, b = (int(value[i:i + 2], 16) for i in (0, 2, 4))
+        except ValueError:
+            continue
+        return (f"background:rgba({r},{g},{b},.30);color:inherit;"
+                f"padding:0 2px;border-radius:3px;")
+    # 令牌缺失时仅保留内边距，底色交给浏览器默认高亮样式
+    return "color:inherit;padding:0 2px;border-radius:3px;"
+
+
+def _highlight(text: str, words: list[str], mode: str = "dark") -> str:
     """把关键词在评论正文中标出（先按词切分，再逐段转义，杜绝 HTML 注入）。"""
     body = "" if text is None else str(text)
     if not words:
         return html.escape(body)
+    style = _mark_style(mode)
     pat = re.compile("(" + "|".join(re.escape(w) for w in words) + ")")
     parts = pat.split(body)
     out = []
     for i, part in enumerate(parts):
         esc = html.escape(part)
         if i % 2:
-            esc = (f'<mark style="background:rgba(251,191,36,.30);color:inherit;'
-                   f'padding:0 2px;border-radius:3px;">{esc}</mark>')
+            esc = f'<mark style="{style}">{esc}</mark>'
         out.append(esc)
     return "".join(out)
 
 
-def _comment_block(row: pd.Series, words: list[str]) -> str:
+def _comment_block(row: pd.Series, words: list[str], mode: str = "dark") -> str:
     meta_bits = []
     for col, label in (("comment_id", "ID"), ("platform", "平台"),
                        ("brand", "品牌"), ("model", "车型")):
@@ -190,7 +210,7 @@ def _comment_block(row: pd.Series, words: list[str]) -> str:
     if "final_sentiment" in row and pd.notna(row["final_sentiment"]):
         meta_bits.append(f"情感值 {float(row['final_sentiment']):+.3f}")
     meta = " · ".join(meta_bits) if meta_bits else "评论"
-    text = _highlight(row.get("comment_text", ""), words)
+    text = _highlight(row.get("comment_text", ""), words, mode)
     return (
         '<div class="ds-card" style="padding:10px 14px;margin-bottom:8px;">'
         f'<div style="font-size:11.5px;color:var(--muted);">{meta}</div>'
@@ -245,7 +265,9 @@ def _wordcloud_image(freq_items: tuple, background: str):
     try:
         from wordcloud import WordCloud
 
-        cols = list(attribute_colors().values()) or ["#6366F1"]
+        cols = list(attribute_colors().values())
+        if not cols:
+            return None
 
         def color_func(word, font_size, position, orientation,
                        random_state=None, **kwargs):
@@ -287,8 +309,8 @@ def _render_wordcloud(freq: dict, mode: str) -> bool:
 
 
 # ================================================================== 四个标签页
-def _tab_overview(mode: str, ov: pd.DataFrame, f: F.Filters,
-                  fjson: str, version: int, attrs: list[str]) -> None:
+def _tab_overview(mode: str, ov: pd.DataFrame, fjson: str,
+                  version: int, attrs: list[str]) -> None:
     section_header("属性总览", subtitle="六大属性的评论量、情感均值与论文基准对照",
                    tag="TABLE")
     st.dataframe(ov, hide_index=True, use_container_width=True)
@@ -327,7 +349,7 @@ def _tab_overview(mode: str, ov: pd.DataFrame, f: F.Filters,
                    "由红到绿表示口碑由差到好，0 附近为中性。")
 
 
-def _tab_flow(mode: str, f: F.Filters, fjson: str, version: int) -> None:
+def _tab_flow(mode: str, fjson: str, version: int) -> None:
     section_header("评论链路", subtitle="平台 → 属性 → 极性 → 重要性档位的流向结构",
                    tag="FLOW")
     left, right = st.columns(2)
@@ -366,6 +388,8 @@ def _tab_drill(mode: str, f: F.Filters, fjson: str, version: int,
         st.caption(f"属性色标：{attr} = {colors.get(attr, '—')}；"
                    "极性选择会覆盖全局极性筛选。")
     pol = _POLARITY_VALUE.get(pol_text)
+    tw = _top_words(attr, pol, 12, fjson, version)          # Top12：条形图 + 高亮词共用
+    words = sorted(tw["词"].tolist(), key=len, reverse=True) if not tw.empty else []
 
     # ---- 左：月度趋势  中：情感分布  右：高频词
     lc, mc, rc = st.columns([1.3, 1, 1.2])
@@ -392,7 +416,6 @@ def _tab_drill(mode: str, f: F.Filters, fjson: str, version: int,
                        "仅随全局筛选与所选属性变化，不随上方极性开关截断。")
     with rc:
         st.markdown("**高频词 Top12**")
-        tw = _top_words(attr, pol, 12, fjson, version)
         if tw.empty:
             st.info("当前筛选下没有可统计的分词结果。")
         else:
@@ -406,7 +429,8 @@ def _tab_drill(mode: str, f: F.Filters, fjson: str, version: int,
     section_header("关键词词云", subtitle=f"「{attr}」·{pol_text}评论的高频词可视化",
                    tag="CLOUD")
     freq_df = _top_words(attr, pol, 60, fjson, version)
-    freq = (dict(zip(freq_df["词"], freq_df["次数"])) if not freq_df.empty else {})
+    freq = ({str(w): int(c) for w, c in zip(freq_df["词"], freq_df["次数"])}
+            if not freq_df.empty else {})
     if not freq:
         st.info("当前筛选下没有可分词的评论文本，请调整属性或极性。")
     else:
@@ -450,15 +474,12 @@ def _tab_drill(mode: str, f: F.Filters, fjson: str, version: int,
     table = page_df[show_cols].rename(columns=_COLUMN_LABEL).copy()
     st.dataframe(table, hide_index=True, use_container_width=True)
 
-    words = _top_words(attr, pol, 12, fjson, version)["词"].tolist() \
-        if not _top_words(attr, pol, 12, fjson, version).empty else []
-    words = sorted(words, key=len, reverse=True)
     st.caption(f"正文高亮关键词（Top{len(words)}）：" + ("、".join(words) if words else "无"))
     for _, row in page_df.iterrows():
-        st.markdown(_comment_block(row, words), unsafe_allow_html=True)
+        st.markdown(_comment_block(row, words, mode), unsafe_allow_html=True)
 
 
-def _tab_rival(mode: str, f: F.Filters, fjson: str, version: int) -> None:
+def _tab_rival(mode: str, fjson: str, version: int) -> None:
     section_header("车型口碑榜", subtitle="按情感均值降序，覆盖当前筛选下的全部车型",
                    tag="RANK")
     rk = _cached("ranking", fjson, version, pd.DataFrame())
@@ -554,10 +575,10 @@ def render() -> None:
     tab_overview, tab_flow, tab_drill, tab_rival = st.tabs(
         ["总览", "链路", "下钻", "竞品"])
     with tab_overview:
-        _tab_overview(MODE, ov, f, fjson, version, attrs)
+        _tab_overview(MODE, ov, fjson, version, attrs)
     with tab_flow:
-        _tab_flow(MODE, f, fjson, version)
+        _tab_flow(MODE, fjson, version)
     with tab_drill:
         _tab_drill(MODE, f, fjson, version, attrs)
     with tab_rival:
-        _tab_rival(MODE, f, fjson, version)
+        _tab_rival(MODE, fjson, version)

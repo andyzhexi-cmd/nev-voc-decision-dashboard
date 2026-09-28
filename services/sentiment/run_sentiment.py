@@ -38,7 +38,9 @@ def parse_tokens(tokens_str) -> list[str]:
         return tokens_str
     if isinstance(tokens_str, str):
         try:
-            return eval(tokens_str)
+            import ast
+            # 安全解析：CSV 中存的是 Python 列表字面量，禁用 eval()
+            return ast.literal_eval(tokens_str)
         except Exception:
             return tokens_str.split()
     return []

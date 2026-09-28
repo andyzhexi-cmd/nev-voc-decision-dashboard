@@ -28,6 +28,8 @@ def test_no_exception_any_view():
             err = _render_error(at)
             if err:
                 problems.append((v, "视图渲染失败: " + str(err)[:700]))
+            if len(at.main) < 5:
+                problems.append((v, f"视图渲染元素过少：{len(at.main)}（疑似空页面）"))
         except Exception as e:
             problems.append((v, f"AppTest 失败: {type(e).__name__}: {e}"[:700]))
     if problems:

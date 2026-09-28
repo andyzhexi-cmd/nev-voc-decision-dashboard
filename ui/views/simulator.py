@@ -40,9 +40,11 @@ def _param_panel(sc: Scenario) -> tuple[bool, bool]:
                         index=0 if sc.mode == "calibrated" else 1,
                         help="论文校准：权重取自论文表5.8/5.11；在线复算：由矩阵实时计算")
         lam = st.slider("λ · DEMATEL 一级权重占比", 0.0, 1.0, float(sc.lam), 0.05,
-                        help="式(4.7)：w = λ·wD + (1−λ)·wA")
+                        help="式(4.7)：w = λ·wD + (1−λ)·wA",
+                        key=f"sim_lam_{sc.lam:g}")
         v = st.slider("v · 决策系数", 0.0, 1.0, float(sc.v), 0.05,
-                      help="v→1 更看重群体效用 S；v→0 更看重个体遗憾 R")
+                      help="v→1 更看重群体效用 S；v→0 更看重个体遗憾 R",
+                      key=f"sim_v_{sc.v:g}")
         ideal = st.radio("理想解策略", ["按指标列（列内极值）", "按属性情感值（表5.15）"],
                          index=0 if sc.ideal_strategy == "criterion" else 1,
                          help="表5.14/5.15 给出按属性的理想解；按指标列是标准 VIKOR 口径")
