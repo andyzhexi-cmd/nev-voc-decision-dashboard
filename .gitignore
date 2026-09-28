@@ -1,0 +1,12 @@
+vene/
+__pycache__/
+*.pyc
+.DS_Store
+data/raw/*.csv
+data/processed/*.csv
+data/features/*.parquet
+outputs/figures/*.png
+outputs/results/*.csv
+outputs/reports/*
+.pytest_cache/
+.streamlit/
