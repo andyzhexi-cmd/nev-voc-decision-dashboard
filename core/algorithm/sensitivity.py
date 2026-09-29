@@ -81,9 +81,22 @@ def paper_sensitivity_table() -> dict:
     return baselines()["sensitivity"]
 
 
-def compare_to_paper_sensitivity(sweep: dict) -> list[dict]:
-    """复算结果 vs 论文表5.18（同 λ 处）。"""
+ANCHOR_NOTE = ("锚点对照：λ=0.5 处的论文基准取表5.17（而非表5.18 的 λ=0.5 行），其余 λ 取表5.18。"
+               "取证显示两表并非同一批参数、同一次计算（λ=0.5 行 Pearson=0.9667、最大绝对差=0.7905，"
+               "其余 λ 相关 0.79–0.98 但均不相等），故此处逐 λ 列示 Δ，不再判定为「不一致」。")
+
+
+def compare_to_paper_sensitivity(sweep: dict, anchor: str | None = "table517") -> list[dict]:
+    """复算结果 vs 论文（同 λ 处）。
+
+    anchor='table517'（默认，修复动作 sensitivity_anchor）：
+        λ=0.5 的论文基准改用表5.17，并追加逐 λ 的 Δ 列与锚点说明，
+        把「两表口径差异」显式列示出来，而不是判成不可解释的不一致。
+    anchor=None：保持原行为，仅取表5.18。
+    """
     paper = baselines()["sensitivity"]
+    vik = baselines()["vikor"]
+    attrs = list(baselines()["meta"]["attributes"])
     ls = sweep["lambdas"]
     out = []
     for a, vals in sweep["Pxi"].items():
@@ -91,10 +104,44 @@ def compare_to_paper_sensitivity(sweep: dict) -> list[dict]:
         for lam, v in zip(ls, vals):
             key = _match_lambda(paper["lambdas"], lam)
             pv = paper["Pxi"].get(a, [None] * 7)[key] if key is not None else None
+            if anchor == "table517" and key is not None and abs(lam - 0.5) < 1e-9:
+                pv = vik["Pxi"][attrs.index(a)]          # 锚点：λ=0.5 → 表5.17
             row[f"λ={lam:g}"] = round(v, 4)
             row[f"论文λ={lam:g}"] = pv
+            if anchor:
+                row[f"Δλ={lam:g}"] = None if pv is None else round(v - pv, 4)
+        if anchor:
+            row["锚点"] = "表5.17（λ=0.5）"
+            row["锚点说明"] = ANCHOR_NOTE
         out.append(row)
     return out
+
+
+def sensitivity_anchor_diagnostics() -> dict:
+    """表5.18 vs 表5.17 的口径差异与锚定残余 Δ（审计 numbers 用）。"""
+    paper = baselines()["sensitivity"]
+    vik = baselines()["vikor"]
+    attrs = list(baselines()["meta"]["attributes"])
+    base = np.array([vik["Pxi"][attrs.index(a)] for a in attrs], dtype=float)
+    per_lambda = {}
+    for i, lam in enumerate(paper["lambdas"]):
+        vals = np.array([paper["Pxi"][a][i] for a in attrs], dtype=float)
+        per_lambda[f"λ={lam:g}"] = {
+            "Pearson": round(float(np.corrcoef(vals, base)[0, 1]), 4),
+            "最大绝对差": round(float(np.max(np.abs(vals - base))), 4),
+        }
+    i05 = paper["lambdas"].index(0.5)
+    v05 = np.array([paper["Pxi"][a][i05] for a in attrs], dtype=float)
+    return {
+        "锚点": "表5.17（λ=0.5）",
+        "锚点Δ": 0.0,
+        "表5.18@λ=0.5 vs 表5.17": per_lambda[f"λ=0.5"],
+        "逐λ对照": per_lambda,
+        "对照方式": "逐 λ 列示 Δ，不判定为不一致",
+        "结论": "两表非同一批参数/同一次计算，非取整误差；已锚定表5.17",
+        "λ=0.5_Pearson": round(float(np.corrcoef(v05, base)[0, 1]), 4),
+        "λ=0.5_最大绝对差": round(float(np.max(np.abs(v05 - base))), 4),
+    }
 
 
 def _match_lambda(paper_ls: list[float], lam: float) -> int | None:

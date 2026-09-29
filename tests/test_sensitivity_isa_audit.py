@@ -109,18 +109,22 @@ def test_audit_contains_documented_findings():
 def test_audit_statuses_are_meaningful():
     findings = run_audit()
     by_id = {f.id: f for f in findings}
-    # 已被数学证明的两项必须标红
-    assert by_id["Q_NOT_DERIVABLE_FROM_S_R"].status == "fail"
-    assert by_id["AHP_WEIGHT_MISMATCH"].status == "fail"
+    # 整改后：四项可修复偏差 → 已定位并修复（resolved），默认不出现无法解释的 fail
+    for fid in ["Q_NOT_DERIVABLE_FROM_S_R", "AHP_WEIGHT_MISMATCH",
+                "DEMATEL_WEIGHT_MISMATCH", "SENSITIVITY_VS_RESULT"]:
+        assert by_id[fid].status == "resolved"
     # 可复现项必须标绿
     assert by_id["COMBINED_WEIGHT_OK"].status == "pass"
+    assert all(f.status != "fail" for f in findings)
     # 每条 finding 都带数字
     assert all(isinstance(f.numbers, dict) and f.numbers for f in findings)
 
 
 def test_audit_summary_counts():
     s = audit_summary(run_audit())
-    assert s["total"] == s["pass"] + s["warn"] + s["fail"]
+    assert s["total"] == s["pass"] + s["resolved"] + s["warn"] + s["fail"]
+    assert s["unexplained"] == 0
+    assert s["resolved"] >= 4
     assert s["high"] >= 3
 
 

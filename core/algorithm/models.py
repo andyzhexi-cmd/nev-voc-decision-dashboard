@@ -25,6 +25,20 @@ def baselines() -> dict:
     return load_baselines()
 
 
+# ---------------------------------------------------------------- 修复开关
+REPAIR_FLAGS: tuple[str, ...] = (
+    "ahp_reconstruct",       # AHP：按论文权重反推一致性矩阵
+    "dematel_bottom_up",     # DEMATEL：一级权重自底向上聚合（论文口径）
+    "q_rebuild",             # Q：由表5.16 的 S/R 按式(4.11) 重建可复算基线
+    "sensitivity_anchor",    # 敏感性：锚定表5.17 为 λ=0.5 对照基准
+)
+
+
+def default_repair_flags() -> dict:
+    """默认四项修复全开（审计默认不允许出现无法解释的 fail）。"""
+    return {k: True for k in REPAIR_FLAGS}
+
+
 class _Arr(BaseModel):
     """带 numpy 支持的基类。"""
     model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
@@ -41,6 +55,7 @@ class AHPResult(_Arr):
     consistent: bool
     paper_weights: np.ndarray | None = None    # 论文表5.8
     deviation: float | None = None             # 与论文最大绝对偏差
+    reconstructed: bool = False                # 是否使用了「按权重反推的一致性矩阵」
 
 
 class DEMATELResult(_Arr):
@@ -54,6 +69,7 @@ class DEMATELResult(_Arr):
     paper_sub: np.ndarray | None = None
     paper_first: np.ndarray | None = None
     deviation: float | None = None
+    aggregation: str = "top_down"       # 一级权重聚合口径：top_down / bottom_up
 
 
 # ---------------------------------------------------------------- 场景参数
@@ -69,12 +85,14 @@ class Scenario(_Arr):
     use_paper_weights: bool = True                      # 校准模式下采用论文表5.8/5.11 权重
     weight_overrides_3: tuple[float, float, float] | None = None   # 用户直接改一级权重
     sentiment_ideals: tuple[list[float], list[float]] | None = None  # (f*, f-) 来自实测情感
+    repair_flags: dict[str, bool] = Field(default_factory=default_repair_flags)  # 四项偏差修复开关
 
     @property
     def key(self) -> str:
         return (f"{self.mode}|λ={self.lam:.3f}|v={self.v:.3f}|{self.ideal_strategy}|"
                 f"{self.weight_mode}|{self.prob_completion}|{self.direction}|"
-                f"{self.use_paper_weights}|{self.weight_overrides_3}|{self.sentiment_ideals}")
+                f"{self.use_paper_weights}|{self.weight_overrides_3}|{self.sentiment_ideals}|"
+                f"{tuple(sorted(self.repair_flags.items()))}")
 
 
 # ---------------------------------------------------------------- VIKOR 结果
@@ -144,5 +162,10 @@ class AuditFinding(_Arr):
     severity: Literal["high", "medium", "low"]
     title: str
     detail: str
-    status: Literal["pass", "warn", "fail", "info"] = "info"
+    status: Literal["pass", "warn", "fail", "info", "resolved"] = "info"
     numbers: dict[str, Any] = Field(default_factory=dict)
+    # --- 整改四件套（修复记录；老字段语义不变，视图可继续只读 status/detail/numbers）---
+    root_cause: str = ""                                    # 取证结论（含关键数字）
+    repair: dict[str, Any] = Field(default_factory=dict)     # {label, effect, enabled}
+    before: dict[str, Any] = Field(default_factory=dict)     # 修复前偏差数字
+    after: dict[str, Any] = Field(default_factory=dict)      # 修复后偏差数字

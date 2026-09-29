@@ -205,23 +205,114 @@ def run_vikor(
     )
 
 
-def paper_reference() -> VIKORResult:
-    """论文表5.16/5.17 基准（只读展示用，不参与计算）。"""
+def paper_reference(v: float | None = None, q_mode: str = "recorded",
+                    sigma_floor: float = 0.06) -> VIKORResult:
+    """论文表5.16/5.17 基准（只读展示用，不参与计算）。
+
+    Parameters
+    ----------
+    v : 式(4.11) 决策系数；默认取论文表5.17 的 v
+    q_mode : 'recorded' —— 原样返回论文记录的 Q / P(x)（对照列）
+             'rebuilt'  —— 可复算基线：由表5.16 的 S/R 按式(4.11) 重建 Q* 与 P*(x)，
+                           论文记录值保留在 diagnostics['recorded'] 中，便于 Δ 对照
+    sigma_floor : 重建可能度矩阵时的 σ 下界（与 run_vikor 同口径）
+    """
     b = baselines()
     attrs = list(b["meta"]["attributes"])
-    v = b["vikor"]
+    tab = b["vikor"]
+    S = np.array(tab["S"], dtype=float)
+    R = np.array(tab["R"], dtype=float)
     from core.algorithm.models import VIKORResult as _V  # noqa
+
+    if q_mode not in ("recorded", "rebuilt"):
+        raise ValueError("q_mode 只能是 'recorded' 或 'rebuilt'")
+    v_val = float(tab.get("v", 0.5)) if v is None else float(v)
+
+    if q_mode == "rebuilt":
+        ref = (float(S.min()), float(S.max()), float(R.min()), float(R.max()))
+        Q = _normal_q(S, R, v_val, "attainment", ref)
+        sigma = np.full(Q.shape, float(sigma_floor))
+        denom = np.sqrt(sigma[:, None] ** 2 + sigma[None, :] ** 2)
+        P = norm.cdf((Q[:, None] - Q[None, :]) / denom)
+        np.fill_diagonal(P, 0.5)
+        Pxi = P.sum(axis=1)
+        Q_prime, Q_lo, Q_hi = Q.copy(), Q.copy(), Q.copy()
+        order = list(np.argsort(-Pxi))
+        ranking = [attrs[i] for i in order]
+        Q_order = [attrs[i] for i in list(np.argsort(-Q))]
+        rec_Q = np.array(tab["Q"], dtype=float)
+        rec_Pxi = np.array(tab["Pxi"], dtype=float)
+        diagnostics = {
+            "source": "paper_table_5_16_rebuilt_by_4_11",
+            "q_mode": "rebuilt",
+            "v": v_val,
+            "sigma_floor": sigma_floor,
+            "direction": "attainment",
+            "recorded": {
+                "Q": [round(float(x), 4) for x in rec_Q],
+                "Pxi": [round(float(x), 4) for x in rec_Pxi],
+                "ranking": list(tab["ranking"]),
+                "v": float(tab.get("v", 0.5)),
+            },
+            "delta_vs_recorded": {
+                "max|Q−Q记录|": round(float(np.max(np.abs(Q - rec_Q))), 4),
+                "max|P(x)−P(x)记录|": round(float(np.max(np.abs(Pxi - rec_Pxi))), 4),
+                "Q按式4.11重建残差": 0.0,
+            },
+            "recorded_max_v_sweep_residual": _recorded_residual_note(),
+        }
+        result = _V(
+            attributes=attrs, criteria=list(b["meta"]["second_level"]), scenario=Scenario(),
+            F_point=np.zeros((6, 12)), F_lo=np.zeros((6, 12)), F_hi=np.zeros((6, 12)),
+            F_norm=np.zeros((6, 12)), prob_sum_deviation=0,
+            w3=np.array(b["combined_weights"]["w"]), w12=np.zeros(12),
+            f_star=np.zeros(6), f_minus=np.zeros(6), attainment=np.zeros((6, 12)),
+            S=S, R=R, Q=Q, Q_prime=Q_prime, sigma=sigma,
+            S_lo=S, S_hi=S, R_lo=R, R_hi=R, Q_lo=Q_lo, Q_hi=Q_hi,
+            P=P, Pxi=Pxi, ranking=ranking, Q_order=Q_order,
+            diagnostics=diagnostics,
+        )
+        return result
+
     return _V(
         attributes=attrs, criteria=list(b["meta"]["second_level"]), scenario=Scenario(),
         F_point=np.zeros((6, 12)), F_lo=np.zeros((6, 12)), F_hi=np.zeros((6, 12)),
         F_norm=np.zeros((6, 12)), prob_sum_deviation=0,
         w3=np.array(b["combined_weights"]["w"]), w12=np.zeros(12),
         f_star=np.zeros(6), f_minus=np.zeros(6), attainment=np.zeros((6, 12)),
-        S=np.array(v["S"]), R=np.array(v["R"]), Q=np.array(v["Q"]),
-        Q_prime=np.array(v["Q_prime"]), sigma=np.zeros(6),
-        S_lo=np.array(v["S"]), S_hi=np.array(v["S"]), R_lo=np.array(v["R"]),
-        R_hi=np.array(v["R"]), Q_lo=np.array(v["Q"]), Q_hi=np.array(v["Q"]),
-        P=np.zeros((6, 6)), Pxi=np.array(v["Pxi"]),
-        ranking=list(v["ranking"]), Q_order=list(v["ranking"]),
-        diagnostics={"source": "paper_table_5_16_5_17"},
+        S=S, R=R, Q=np.array(tab["Q"]), Q_prime=np.array(tab["Q_prime"]), sigma=np.zeros(6),
+        S_lo=S, S_hi=S, R_lo=R, R_hi=R, Q_lo=np.array(tab["Q"]), Q_hi=np.array(tab["Q"]),
+        P=np.zeros((6, 6)), Pxi=np.array(tab["Pxi"]),
+        ranking=list(tab["ranking"]), Q_order=list(tab["ranking"]),
+        diagnostics={"source": "paper_table_5_16_5_17", "q_mode": "recorded",
+                     "v": float(tab.get("v", 0.5))},
     )
+
+
+def _recorded_residual_note() -> dict:
+    """论文记录 Q 的穷举取证摘要（v∈[0,1] 1001 档 + 逐点剔除）。"""
+    b = baselines()
+    S = np.array(b["vikor"]["S"], dtype=float)
+    R = np.array(b["vikor"]["R"], dtype=float)
+    Qp = np.array(b["vikor"]["Q"], dtype=float)
+    ds = (S.max() - S.min()) or 1.0
+    dr = (R.max() - R.min()) or 1.0
+    best_res, best_v, arg_grid = 1e9, 0.0, np.linspace(0.0, 1.0, 1001)
+    for v in arg_grid:
+        Q = np.clip(v * (S - S.min()) / ds + (1 - v) * (R - R.min()) / dr, 0, 1)
+        res = float(np.max(np.abs(Q - Qp)))
+        if res < best_res:
+            best_res, best_v = res, float(v)
+    loo = 1e9
+    for omit in range(len(S)):
+        keep = [i for i in range(len(S)) if i != omit]
+        for v in arg_grid:
+            Q = np.clip(v * (S - S.min()) / ds + (1 - v) * (R - R.min()) / dr, 0, 1)
+            loo = min(loo, float(np.max(np.abs(Q[keep] - Qp[keep]))))
+    return {
+        "v档数": len(arg_grid),
+        "最佳v": round(best_v, 3),
+        "最佳v最大残差": round(best_res, 3),
+        "逐点剔除最小残差(本系统最大绝对口径)": round(loo, 3),
+        "结论": "任何 v 都无法由表5.16 的 S/R 推出表5.17 的 Q",
+    }

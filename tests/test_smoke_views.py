@@ -1,7 +1,8 @@
-"""应用级冒烟：用 streamlit.testing.v1.AppTest 跑五个视图，断言无异常、无视图错误。"""
+"""应用级冒烟：用 streamlit.testing.v1.AppTest 跑六个视图，断言无异常、无视图错误。"""
 from streamlit.testing.v1 import AppTest
 
-VIEWS = ["决策总览", "属性情感分析", "PLTS-VIKOR 模拟器", "洞察与报告", "数据管理"]
+VIEWS = ["产品导览", "决策总览", "属性情感分析", "PLTS-VIKOR 模拟器",
+         "洞察与报告", "数据管理"]
 
 
 def _run(view: str) -> AppTest:

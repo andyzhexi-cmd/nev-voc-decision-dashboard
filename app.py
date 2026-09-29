@@ -1,13 +1,14 @@
 """智评车行 · 企业级决策看板主入口
 
 架构（重构后）：
-    app.py          路由 + 主题注入 + 全局筛选（<200 行，无业务逻辑）
-    state/store.py  会话状态唯一入口
-    ui/theme.py     设计令牌（config/theme.yaml）
-    ui/components/  可复用组件
-    ui/views/       五个视图（互不 import）
-    services/       数据访问 / 聚合 / 报告
-    core/algorithm/ 纯算法层（零 Streamlit 依赖）
+    app.py           路由 + 主题注入 + 全局筛选（无业务逻辑）
+    state/store.py   会话状态唯一入口
+    ui/layout.py     版式系统（具名栅格 / 统一面板 / 高度档位）
+    ui/theme.py      设计令牌（config/theme.yaml）+ 明暗同步
+    ui/components/   可复用组件（徽章、KPI、图表）
+    ui/views/        六个视图（互不 import）
+    services/        数据访问 / 聚合 / 报告
+    core/algorithm/  纯算法层（零 Streamlit 依赖）
 
 运行： streamlit run app.py
 """
@@ -30,10 +31,14 @@ st.set_page_config(
 # ------------------------------------------------------------------ 初始化
 store.init()
 MODE = store.theme()
-theme.inject(MODE)
+theme.inject(MODE)   # 内部会同步 Streamlit 内建主题（明暗一致）
 
-NAV = ["决策总览", "属性情感分析", "PLTS-VIKOR 模拟器", "洞察与报告", "数据管理"]
-ICONS = ["house", "diagram-3", "sliders", "file-earmark-bar-graph", "database"]
+NAV = ["产品导览", "决策总览", "属性情感分析", "PLTS-VIKOR 模拟器", "洞察与报告", "数据管理"]
+ICONS = ["compass", "house", "diagram-3", "sliders", "file-earmark-bar-graph", "database"]
+SECTION_OF = {
+    "产品导览": "开始", "决策总览": "分析", "属性情感分析": "分析",
+    "PLTS-VIKOR 模拟器": "分析", "洞察与报告": "分析", "数据管理": "数据",
+}
 
 
 @st.cache_data(show_spinner=False, ttl=300)
@@ -56,8 +61,8 @@ dims = _dim_options()
 # ------------------------------------------------------------------ 侧栏
 with st.sidebar:
     st.markdown(
-        '<div style="padding:6px 4px 14px;">'
-        '<div style="font-size:19px;font-weight:800;letter-spacing:.02em;">'
+        '<div style="padding:4px 4px 12px;">'
+        '<div style="font-size:18px;font-weight:800;letter-spacing:.02em;">'
         '<span class="ds-grad-text">智评车行</span> · 决策看板</div>'
         '<div style="font-size:11.5px;color:var(--muted);margin-top:3px;">'
         '新能源汽车产品改进多属性决策平台</div></div>',
@@ -78,13 +83,15 @@ with st.sidebar:
         store.set_view(view)
 
     st.markdown("---")
-    st.caption("全局筛选")
+    st.markdown('<div class="ds-chip chip-brand">全局筛选</div>', unsafe_allow_html=True)
+    st.caption("作用于所有分析视图，需点击「应用」生效")
     f = store.filters()
     brand = st.multiselect("品牌", dims["brand"], default=f.brand or [],
                            placeholder="全部品牌")
     model_opts = (sorted({m for b in brand for m in dims["brand_models"].get(b, [])})
                   if brand else dims["model"])
-    model = st.multiselect("车型", model_opts, default=[m for m in (f.model or []) if m in model_opts],
+    model = st.multiselect("车型", model_opts,
+                           default=[m for m in (f.model or []) if m in model_opts],
                            placeholder="全部车型")
     picked: list[str] | None = None
     d0 = pd.to_datetime(dims["date"][0], errors="coerce")
@@ -101,27 +108,28 @@ with st.sidebar:
                         .get({"positive": "仅正面", "negative": "仅负面"}.get(f.polarity, "全部"), 0),
                         horizontal=True)
     st.caption(f"数据范围 {dims['date'][0]} ~ {dims['date'][1]}")
-    c1, c2 = st.columns(2)
+    c1, c2 = st.columns(2, gap="small")
     with c1:
-        if st.button("应用", use_container_width=True, type="primary"):
+        if st.button("应用", width="stretch", type="primary"):
             store.update_filters(
                 brand=brand or None, model=model or None, date=picked,
                 polarity=None if polarity == "全部"
                 else ("positive" if polarity == "仅正面" else "negative"))
             st.rerun()
     with c2:
-        if st.button("清空", use_container_width=True):
+        if st.button("清空", width="stretch"):
             store.clear_filters()
             st.rerun()
 
     st.markdown("---")
-    t1, t2 = st.columns(2)
+    st.markdown('<div class="ds-chip chip-brand">视图与场景</div>', unsafe_allow_html=True)
+    t1, t2 = st.columns(2, gap="small")
     with t1:
-        if st.button(("🌙 暗色" if MODE == "light" else "☀️ 亮色"), use_container_width=True):
+        if st.button(("🌙 暗色" if MODE == "light" else "☀️ 亮色"), width="stretch"):
             store.toggle_theme()
             st.rerun()
     with t2:
-        if st.button("↺ 重置场景", use_container_width=True):
+        if st.button("↺ 重置场景", width="stretch"):
             store.reset_scenario()
             st.rerun()
 
@@ -129,42 +137,41 @@ with st.sidebar:
     from services.data_store import store as ds_store
     fresh = ds_store().freshness()
     st.markdown(
-        f'<div style="font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.7;">'
+        f'<div style="font-size:11.5px;color:var(--muted);margin-top:12px;line-height:1.8;">'
         f'数据流水线 <b style="color:{"#34D399" if fresh["all_ready"] else "#FBBF24"}">'
         f'{fresh["ready"]}/{fresh["total"]}</b> 就绪 · 更新于 {fresh["age"]}<br>'
-        f'口径 <b>{store.scenario().mode and ("论文校准" if store.scenario().mode=="calibrated" else "在线复算")}'
-        f'</b> · λ={store.scenario().lam:g}</div>',
+        f'口径 <b>{"论文校准" if store.scenario().mode == "calibrated" else "在线复算"}'
+        f'</b> · λ={store.scenario().lam:g} · v={store.scenario().v:g}</div>',
         unsafe_allow_html=True)
 
-# ------------------------------------------------------------------ 顶栏
+# ------------------------------------------------------------------ 顶栏（单一状态条）
 sc = store.scenario()
-findings = store.get_audit() if st.session_state.get("dsh.scenario_dirty") else store.get_audit()
-hdr = st.columns([4, 1.2, 1.2, 1.4])
-with hdr[0]:
-    st.markdown(
-        f'<div style="font-size:24px;font-weight:800;padding-top:4px;">'
-        f'<span class="ds-grad-text">{store.view()}</span></div>',
-        unsafe_allow_html=True)
-with hdr[1]:
-    from ui.components import algorithm_badge
-    algorithm_badge(sc, findings)
-with hdr[2]:
-    from services.data_store import store as ds_store
-    fr = ds_store().freshness()
-    st.markdown(f'<span class="ds-chip chip-muted">评论库 {fr["ready"]}/{fr["total"]} 阶段</span>',
-                unsafe_allow_html=True)
-with hdr[3]:
-    from services.features import kpi_summary
-    k = kpi_summary(store.filters())
-    st.markdown(f'<span class="ds-chip chip-brand">筛选后 {k["n_kept"]:,} 条 · '
-                f'情感均值 {k["mean_sentiment"]:+.3f}</span>', unsafe_allow_html=True)
-
-st.markdown("")
+findings = store.get_audit()
+from ui.components.indicators import algorithm_badges          # noqa: E402
+from services.data_store import store as ds_store              # noqa: E402
+fr = ds_store().freshness()
+from services.features import kpi_summary                      # noqa: E402
+k = kpi_summary(store.filters())
+badges = (
+    algorithm_badges(sc, findings)
+    + f'<span class="ds-chip chip-muted">评论库 {fr["ready"]}/{fr["total"]} 阶段</span>'
+    + f'<span class="ds-chip chip-muted">筛选后 {k["n_kept"]:,} 条 · '
+      f'情感均值 {k["mean_sentiment"]:+.3f}</span>'
+)
+st.markdown(
+    f'<div class="ds-topbar">'
+    f'<div><div class="tb-title">智评车行 · 决策看板</div>'
+    f'<div class="tb-sub">{SECTION_OF.get(store.view(), "")} · 论文校准与在线复算双口径 · 全链路可审计'
+    f'</div></div><div class="tb-chips">{badges}</div></div>',
+    unsafe_allow_html=True)
 
 # ------------------------------------------------------------------ 路由
 def _render():
     name = store.view()
-    if name == "决策总览":
+    if name == "产品导览":
+        from ui.views import onboarding
+        onboarding.render()
+    elif name == "决策总览":
         from ui.views import executive
         executive.render()
     elif name == "属性情感分析":
@@ -199,4 +206,4 @@ except Exception as exc:  # 视图失败不拖垮整个应用
 
 st.markdown("---")
 st.caption("智评车行 · 融合情感分析与 PLTS-VIKOR 的新能源汽车产品改进多属性决策 | "
-           "论文校准与在线复算双口径 · 全链路可审计")
+           "论文校准与在线复算双口径 · 全链路可审计 | 论文出处：上海理工大学硕士学位论文")

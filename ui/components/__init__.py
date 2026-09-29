@@ -12,3 +12,4 @@ from ui.components.charts import (  # noqa: F401
     donut, heatmap, hbar_simple, matrix_heatmap, quadrant_chart, radar, rank_bars,
     sankey, sentiment_bars_by_attr, sentiment_hist, sr_scatter, sunburst, trend_line,
 )
+from ui.components.audit_panel import audit_panel  # noqa: F401

@@ -49,8 +49,8 @@ def mode_badge(mode: str) -> str:
     return "论文校准模式" if mode == "calibrated" else "在线复算模式"
 
 
-def algorithm_badge(scenario, findings: list | None = None) -> None:
-    """顶部口径徽章：论文校准 / 在线复算 + 模式参数摘要。"""
+def algorithm_badges(scenario, findings: list | None = None) -> str:
+    """口径徽章的 HTML（纯函数，供整行徽章条复用）。"""
     from core.algorithm.models import Scenario
     sc: Scenario = scenario
     if sc.mode == "calibrated":
@@ -58,15 +58,23 @@ def algorithm_badge(scenario, findings: list | None = None) -> None:
     else:
         tone, label = "warn", "● 在线复算模式 · AHP/DEMATEL 实时计算"
     n_fail = sum(1 for f in (findings or []) if f.status == "fail")
+    n_res = sum(1 for f in (findings or []) if f.status == "resolved")
     n_warn = sum(1 for f in (findings or []) if f.status == "warn")
-    st.markdown(
-        f'<span class="ds-chip chip-{tone}">{label}</span> '
+    audit_txt = ((f"{n_fail} 项偏差 · " if n_fail else (f"{n_res} 项已解析 · " if n_res else ""))
+                 + f"{n_warn} 项待确认")
+    audit_tone = "bad" if n_fail else ("ok" if not n_warn else "warn")
+    return (
+        f'<span class="ds-chip chip-{tone}">{label}</span>'
         f'<span class="ds-chip chip-muted">λ={sc.lam:g} · v={sc.v:g} · '
-        f'{"达标度" if sc.direction=="attainment" else "差值度"} · '
-        f'{"按指标列理想解" if sc.ideal_strategy=="criterion" else "情感理想解"}</span> '
-        f'<span class="ds-chip chip-{"bad" if n_fail else "warn" if n_warn else "ok"}">'
-        f'审计 {n_fail} 项偏差 · {n_warn} 项待确认</span>',
-        unsafe_allow_html=True)
+        f'{"达标度" if sc.direction == "attainment" else "差值度"} · '
+        f'{"按指标列理想解" if sc.ideal_strategy == "criterion" else "情感理想解"}</span>'
+        f'<span class="ds-chip chip-{audit_tone}">审计 {audit_txt}</span>'
+    )
+
+
+def algorithm_badge(scenario, findings: list | None = None) -> None:
+    """顶部口径徽章：论文校准 / 在线复算 + 模式参数摘要。"""
+    st.markdown(algorithm_badges(scenario, findings), unsafe_allow_html=True)
 
 
 def callout(text: str) -> None:
@@ -103,7 +111,7 @@ def legend_html(extra: dict | None = None) -> str:
 def dev_table(df, column: str = "Δvs论文") -> None:
     """带正负色条的偏差表。"""
     st.dataframe(
-        df, use_container_width=True, hide_index=True,
+        df, width="stretch", hide_index=True,
         column_config={column: st.column_config.ProgressColumn(
             column, help="复算值与论文基准的偏差", format="%.4f",
             min_value=0.0, max_value=0.3)}
@@ -112,8 +120,9 @@ def dev_table(df, column: str = "Δvs论文") -> None:
 
 
 def audit_badge(status: str) -> str:
-    return {"pass": "✓ 通过", "warn": "△ 待确认", "fail": "✕ 偏差"}.get(status, status)
+    return {"pass": "✓ 通过", "resolved": "◆ 已解析", "warn": "△ 待确认",
+            "fail": "✕ 偏差"}.get(status, status)
 
 
 def severity_tone(status: str) -> str:
-    return {"pass": "ok", "warn": "warn", "fail": "bad"}.get(status, "muted")
+    return {"pass": "ok", "resolved": "ok", "warn": "warn", "fail": "bad"}.get(status, "muted")

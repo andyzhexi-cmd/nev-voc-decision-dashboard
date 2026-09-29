@@ -11,3 +11,6 @@ outputs/reports/*
 .pytest_cache/
 .streamlit/
 services/.mplconfig/
+
+# UI 偏好（明暗选择，本机）
+data/ui_prefs.json

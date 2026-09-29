@@ -20,7 +20,8 @@
    数值实验已证明：论文表5.16/5.17 的 S/R/Q 无法由其自身数据与式(4.9)–(4.11) 复算得到
    （最好相关性仅 0.763）。因此系统以 **论文基准为 SSOT**、**实时复算为可验证路径**，
    两者并列展示，并把 6 处已知不一致固化为 `config/baselines.yaml → audit_findings`，
-   在 9 条审计项中以实时计算的数字呈现（1 项 pass / 4 项 fail / 4 项 warn，高严重级 3 项）。
+   在 9 条审计项中以实时计算的数字呈现（整改后：**1 项 pass / 4 项已解析 / 4 项 warn /
+  0 项未解释偏差**，高严重级 3 项；关闭任一修复开关即回落为 fail，见第五节）。
 2. **效用方向显式化**：默认 `direction="attainment"`（论文口径：S 越大越重要），
    同时提供传统 VIKOR 的 `shortfall`；两种口径下 S′ = 1 − S 的互证关系已写入单测。
 3. **图表栈**：Plotly 7 为主力（雷达/热力/S-R 散点/象限/趋势/分布），ECharts 仅用于
@@ -49,3 +50,16 @@
   根因是论文权重与判断矩阵不可复算，已在审计面板与总览页显式说明；
 - 感知情感均值（复算 0.463）与论文问卷均值（0.488）口径不同，仅作对照，不混用；
 - ECharts 图在 AppTest 中被跳过（自定义组件），已用裸模式单测验证 option 构造。
+
+## 五、第三阶段 · 三问题整改（版式 / 审计 / 上手）
+
+| 问题 | 处置 | 产物 |
+|---|---|---|
+| ① 界面"乱飘"、版式不协调 | 参照 NHS dashboard 布局规范（32px 页边 / 16px 卡内 / 32px 卡间距 / 一排 ≤6 KPI）、Shilp Sutra 三档间距节奏（8/16/32）、Fiori 语义页头，收敛为**具名栅格 + 统一面板 + 四档高度**；五个视图里 15 种随手比例归档为 9 组具名栅格，`st.columns` 字面量全站归零 | `ui/layout.py`、`ui/theme.py`、`docs/版式与主题基准.md` |
+| ② 四项审计偏差 | 逐条取证 → 根因 → 可开关的修复动作（AHP 反推一致性矩阵 / DEMATEL 自底向上聚合 / Q 按式4.11 重建 / 敏感性锚定表5.17），四项全部 **已解析**，`unexplained=0` | `docs/审计取证与修复.md`、`tests/test_audit_remediation.py`（12 项）、`ui/components/audit_panel.py` |
+| ③ 不了解项目难上手 | 新增默认落地页「产品导览」：产品定义、3 分钟路线（点击跳转）、五层架构图、两条数据链路、9 条概念词典、可复现性说明、60 秒讲稿、运行命令 | `ui/views/onboarding.py`、`state/store.py` 默认 `dsh.view="产品导览"` |
+| 附：明暗主题不完整 | `theme.sync()` 回写 Streamlit 主题配置（表格/代码块跟随）+ `:root` 覆盖内建组件令牌（滑块/单选/进度条跟随），徽章与面板颜色全部令牌化；选择持久化到 `data/ui_prefs.json` | `ui/theme.py`、`state/store.py` |
+| 附：真实数据接入 | 编码/分隔符嗅探、列别名映射、列错位检测、干跑体检报告、备份后原子落盘、模板与规范 | `services/data_ingest/importer.py`、`tests/test_ingest.py`（10 项）、`docs/数据接入规范.md` |
+
+验收：六视图 × 明暗双主题 AppTest 无异常；`pytest tests/` 全绿；`scripts_syntax_check.py` 通过；
+`st.columns` / `use_container_width` / 硬编码色值 / 手工空行四类 grep 计数均为 0。

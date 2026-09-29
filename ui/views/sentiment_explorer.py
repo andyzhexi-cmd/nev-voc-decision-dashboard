@@ -1,12 +1,16 @@
 """ui.views.sentiment_explorer — 属性情感分析（Aspect-Based Sentiment Explorer）
 
-版式（四个标签页）：
+版式（遵循 ui/layout.py 的四层结构：区块标题 → 卡片面 → 图表/表格 → 口径脚注）
     顶部   section_header + 全局筛选摘要 callout + KPI 行（属性覆盖 / 正负比 /
            最满意与最不满意属性 / 双模型一致率）
-    总览   属性总览表 → 正负量与情感均值双轴图 + 雷达（右栏）→ 品牌×属性热力图
-    链路   平台→属性→极性→重要性档位桑基图 + 平台→属性→极性旭日图（横排）
-    下钻   月度趋势 + 情感分布 + 高频词 TopN（含词云与关键词高亮评论分页）
-    竞品   车型口碑榜（表 + 排行条形图）+ 品牌×属性双矩阵（指标切换）
+    总览   属性总览表面板 → 主栏正负量与情感均值图 + 边栏雷达 → 品牌×属性热力图面板
+    链路   平台→属性→极性→重要性档位桑基面板 + 平台→属性→极性旭日面板（layout.split("even")）
+    下钻   控件行（even3）→ 月度趋势 / 情感分布 / 高频词 三面板（even3）
+           → 词云面板 → 关键词高亮评论面板（分页与排序）
+    竞品   车型明细面板 + 排行面板 → 品牌×属性双矩阵面板（main_rail）
+
+栅格只用 GRIDS 内的具名比例；图表高度只取 layout.H 四档（150/260/340/440）；
+宽度统一 width="stretch"（st.plotly_chart 在 1.50 无 width 参数，默认即占满父宽）。
 
 数据全部来自 state.store 与 services.features 契约，视图内不读任何 CSV：
     store.theme / store.filters / store.filters_json / store.data_version /
@@ -25,6 +29,7 @@ import streamlit as st
 
 from services import features as F
 from state import store
+from ui import layout
 from ui.components import (
     callout,
     empty_state,
@@ -105,6 +110,12 @@ def _hist_frame(attr: str | None, fjson: str, version: int) -> pd.DataFrame:
     if sub is None or sub.empty or "final_sentiment" not in sub.columns:
         return pd.DataFrame(columns=["final_sentiment"])
     return sub[["final_sentiment"]].copy()
+
+
+def _snap_height(raw: int) -> int:
+    """把动态计算出的高度吸附到 layout.H 四档（150/260/340/440）。"""
+    ladder = [layout.height(k) for k in ("xs", "s", "m", "l")]
+    return min(ladder, key=lambda h: (abs(h - raw), h))
 
 
 # ================================================================== 文案与工具
@@ -211,8 +222,9 @@ def _comment_block(row: pd.Series, words: list[str], mode: str = "dark") -> str:
         meta_bits.append(f"情感值 {float(row['final_sentiment']):+.3f}")
     meta = " · ".join(meta_bits) if meta_bits else "评论"
     text = _highlight(row.get("comment_text", ""), words, mode)
+    # 卡片面用主题 .ds-card（自带边框/圆角/16px 内边距），行内只保留 8pt 节奏与令牌色
     return (
-        '<div class="ds-card" style="padding:10px 14px;margin-bottom:8px;">'
+        '<div class="ds-card" style="margin-bottom:8px;">'
         f'<div style="font-size:11.5px;color:var(--muted);">{meta}</div>'
         f'<div style="font-size:13.5px;line-height:1.7;margin-top:4px;'
         f'color:var(--text);word-break:break-all;">{text}</div></div>'
@@ -274,7 +286,7 @@ def _wordcloud_image(freq_items: tuple, background: str):
             return cols[sum(ord(c) for c in str(word)) % len(cols)]
 
         wc = WordCloud(
-            font_path=font, width=960, height=420,
+            font_path=font, width=960, height=layout.height("l"),
             background_color=background, max_words=80,
             min_font_size=10, max_font_size=170,
             prefer_horizontal=0.9, margin=6, color_func=color_func,
@@ -304,7 +316,7 @@ def _render_wordcloud(freq: dict, mode: str) -> bool:
         st.caption("词云渲染失败，已降级为下方词频条形图。")
         return False
     st.image(img, caption="词云 · 字号与词频成正比，颜色对应属性色标",
-             use_container_width=True)
+             width="stretch")
     return True
 
 
@@ -313,58 +325,68 @@ def _tab_overview(mode: str, ov: pd.DataFrame, fjson: str,
                   version: int, attrs: list[str]) -> None:
     section_header("属性总览", subtitle="六大属性的评论量、情感均值与论文基准对照",
                    tag="TABLE")
-    st.dataframe(ov, hide_index=True, use_container_width=True)
-    st.caption("口径：仅统计双模型一致的评论；Δvs论文 = 当前筛选情感均值 − 论文基准情感。")
 
-    left, right = st.columns([3, 2])
+    with layout.panel("属性总览明细",
+                      "口径：仅统计双模型一致的评论；Δvs论文 = 当前筛选情感均值 − 论文基准情感。"):
+        st.dataframe(ov, hide_index=True, width="stretch")
+
+    left, right = layout.split("main_rail")
     with left:
-        st.markdown("**各属性正/负面评论量与情感均值**")
-        st.plotly_chart(
-            sentiment_bars_by_attr(ov, mode=mode),
-            use_container_width=True, key="abse_bars")
-        st.caption("堆叠柱为正面/负面评论量（左轴），折线为情感均值（右轴，-1 ~ 1）。")
-        st.markdown(legend_html(), unsafe_allow_html=True)
-    with right:
-        st.markdown("**品牌属性雷达**")
-        series = _cached("radar", fjson, version, [])
-        if series:
+        with layout.panel("各属性正/负面评论量与情感均值",
+                          "堆叠柱为正面/负面评论量（左轴），折线为情感均值（右轴，-1 ~ 1）。"):
             st.plotly_chart(
-                radar(series, attrs, mode=mode, height=400),
-                use_container_width=True, key="abse_radar")
-            st.caption("各品牌在六大属性上的情感均值归一化到 40 ~ 100，悬停可见原始均值。")
+                sentiment_bars_by_attr(ov, mode=mode, height=layout.height("m")),
+                key="abse_bars")
             st.markdown(legend_html(), unsafe_allow_html=True)
-        else:
-            st.info("当前筛选下没有可绘制的品牌雷达数据。")
+    with right:
+        with layout.panel("品牌属性雷达",
+                          "各品牌在六大属性上的情感均值归一化到 40 ~ 100，悬停可见原始均值。"):
+            series = _cached("radar", fjson, version, [])
+            if series:
+                st.plotly_chart(
+                    radar(series, attrs, mode=mode, height=layout.height("m")),
+                    key="abse_radar")
+                st.markdown(legend_html(), unsafe_allow_html=True)
+            else:
+                st.info("当前筛选下没有可绘制的品牌雷达数据。")
 
-    st.markdown("**品牌 × 属性情感热力图**")
-    pv_mean, _pv_cnt = _cached("brand_attr", fjson, version,
-                               (pd.DataFrame(), pd.DataFrame()))
-    if pv_mean is None or pv_mean.empty:
-        st.info("当前筛选下没有品牌 × 属性数据。")
-    else:
-        st.plotly_chart(
-            heatmap(pv_mean, mode=mode, height=360, diverging=True, fmt=".3f"),
-            use_container_width=True, key="abse_heatmap")
-        st.caption("数值为情感均值（VADER，-1 ~ 1），行=品牌、列=属性；"
-                   "由红到绿表示口碑由差到好，0 附近为中性。")
+    with layout.panel("品牌 × 属性情感热力图",
+                      "数值为情感均值（VADER，-1 ~ 1），行=品牌、列=属性；"
+                      "由红到绿表示口碑由差到好，0 附近为中性。"):
+        pv_mean, _pv_cnt = _cached("brand_attr", fjson, version,
+                                   (pd.DataFrame(), pd.DataFrame()))
+        if pv_mean is None or pv_mean.empty:
+            st.info("当前筛选下没有品牌 × 属性数据。")
+        else:
+            st.plotly_chart(
+                heatmap(pv_mean, mode=mode, height=layout.height("m"),
+                        diverging=True, fmt=".3f"),
+                key="abse_heatmap")
 
 
 def _tab_flow(mode: str, fjson: str, version: int) -> None:
     section_header("评论链路", subtitle="平台 → 属性 → 极性 → 重要性档位的流向结构",
                    tag="FLOW")
-    left, right = st.columns(2)
+
+    left, right = layout.split("even")
     with left:
-        section_header("流向桑基", subtitle="口径：连线宽度 = 评论条数",
-                       tag="SANKEY")
-        st.caption("从左到右依次为：平台 → 属性 → 属性×极性 → 重要性档位"
-                   "（按论文 P(x) 排序：Top2=高、中段=中、末位=低）。")
-        sankey(_cached("sankey", fjson, version, {"nodes": [], "links": []}),
-               mode=mode, key="sankey1")
+        with layout.panel(
+                "流向桑基",
+                "口径：连线宽度 = 评论条数。从左到右依次为：平台 → 属性 → 属性×极性 → "
+                "重要性档位（按论文 P(x) 排序：Top2=高、中段=中、末位=低）。"):
+            sankey(_cached("sankey", fjson, version, {"nodes": [], "links": []}),
+                   mode=mode, key="sankey1",
+                   height=f'{layout.height("l")}px')
     with right:
-        section_header("层级旭日", subtitle="口径：扇区面积 = 评论条数", tag="SUNBURST")
-        st.caption("内环为平台，中环为属性，外环为情感极性；面积与筛选后的评论数成正比。")
-        sunburst(_cached("sunburst", fjson, version, {"name": "评论", "children": []}),
-                 mode=mode, key="sunburst1")
+        with layout.panel(
+                "层级旭日",
+                "口径：扇区面积 = 评论条数。内环为平台，中环为属性，外环为情感极性；"
+                "面积与筛选后的评论数成正比。"):
+            sunburst(_cached("sunburst", fjson, version,
+                             {"name": "评论", "children": []}),
+                     mode=mode, key="sunburst1",
+                     height=f'{layout.height("l")}px')
+
     st.markdown(legend_html(), unsafe_allow_html=True)
     st.caption("属性色标与全站图表一致；两图均基于当前全局筛选口径。")
 
@@ -376,7 +398,7 @@ def _tab_drill(mode: str, f: F.Filters, fjson: str, version: int,
     colors = attribute_colors()
 
     # ---- 控件：属性（带色标）+ 极性
-    c1, c2, c3 = st.columns([1.2, 1, 2.2])
+    c1, c2, c3 = layout.split("even3")
     with c1:
         attr = st.selectbox("属性", attrs, key="abse_attr")
     with c2:
@@ -391,92 +413,98 @@ def _tab_drill(mode: str, f: F.Filters, fjson: str, version: int,
     tw = _top_words(attr, pol, 12, fjson, version)          # Top12：条形图 + 高亮词共用
     words = sorted(tw["词"].tolist(), key=len, reverse=True) if not tw.empty else []
 
-    # ---- 左：月度趋势  中：情感分布  右：高频词
-    lc, mc, rc = st.columns([1.3, 1, 1.2])
+    # ---- 左：月度趋势  中：情感分布  右：高频词（三面板等高，卡片底边对齐）
+    lc, mc, rc = layout.split("even3")
     with lc:
-        st.markdown("**月度情感趋势**")
-        trend = _cached("trend", fjson, version,
-                        pd.DataFrame(columns=["月份", "属性", "情感均值", "评论数"]))
-        if trend is None or trend.empty:
-            st.info("当前筛选下没有可绘制的月度数据。")
-        else:
-            st.plotly_chart(trend_line(trend, mode=mode),
-                            use_container_width=True, key="abse_trend")
-            st.caption("按月聚合的情感均值，每条曲线对应一个属性；悬停可见当月评论数。")
-            st.markdown(legend_html(), unsafe_allow_html=True)
+        with layout.panel("月度情感趋势",
+                          "按月聚合的情感均值，每条曲线对应一个属性；悬停可见当月评论数。"):
+            trend = _cached("trend", fjson, version,
+                            pd.DataFrame(columns=["月份", "属性", "情感均值", "评论数"]))
+            if trend is None or trend.empty:
+                st.info("当前筛选下没有可绘制的月度数据。")
+            else:
+                st.plotly_chart(trend_line(trend, mode=mode,
+                                           height=layout.height("m")),
+                                key="abse_trend")
+                st.markdown(legend_html(), unsafe_allow_html=True)
     with mc:
-        st.markdown("**情感值分布**")
-        hist = _hist_frame(attr, fjson, version)
-        if hist.empty:
-            st.info("当前筛选下没有可绘制的情感分布。")
-        else:
-            st.plotly_chart(sentiment_hist(hist, mode=mode),
-                            use_container_width=True, key="abse_hist")
-            st.caption(f"「{attr}」的 VADER 情感值直方图（-1 ~ 1）；"
-                       "仅随全局筛选与所选属性变化，不随上方极性开关截断。")
+        with layout.panel("情感值分布",
+                          f"「{attr}」的 VADER 情感值直方图（-1 ~ 1）；"
+                          "仅随全局筛选与所选属性变化，不随上方极性开关截断。"):
+            hist = _hist_frame(attr, fjson, version)
+            if hist.empty:
+                st.info("当前筛选下没有可绘制的情感分布。")
+            else:
+                st.plotly_chart(sentiment_hist(hist, mode=mode,
+                                               height=layout.height("m")),
+                                key="abse_hist")
     with rc:
-        st.markdown("**高频词 Top12**")
-        if tw.empty:
-            st.info("当前筛选下没有可统计的分词结果。")
-        else:
-            st.plotly_chart(
-                hbar_simple(tw["词"].tolist(), tw["次数"].tolist(), mode=mode,
-                            height=300, title=None),
-                use_container_width=True, key="abse_topwords")
-            st.caption(f"「{attr}」·{pol_text}评论中出现次数最多的中文词（2-6 字，已去停用词）。")
+        with layout.panel("高频词 Top12",
+                          f"「{attr}」·{pol_text}评论中出现次数最多的中文词"
+                          "（2-6 字，已去停用词）。"):
+            if tw.empty:
+                st.info("当前筛选下没有可统计的分词结果。")
+            else:
+                st.plotly_chart(
+                    hbar_simple(tw["词"].tolist(), tw["次数"].tolist(), mode=mode,
+                                height=layout.height("m"), title=None),
+                    key="abse_topwords")
 
     # ---- 词云（无 wordcloud / 无中文字体时降级为词频条形图）
-    section_header("关键词词云", subtitle=f"「{attr}」·{pol_text}评论的高频词可视化",
-                   tag="CLOUD")
     freq_df = _top_words(attr, pol, 60, fjson, version)
     freq = ({str(w): int(c) for w, c in zip(freq_df["词"], freq_df["次数"])}
             if not freq_df.empty else {})
-    if not freq:
-        st.info("当前筛选下没有可分词的评论文本，请调整属性或极性。")
-    else:
-        if not _render_wordcloud(freq, mode):
+    with layout.panel("关键词词云", f"「{attr}」·{pol_text}评论的高频词可视化"):
+        if not freq:
+            st.info("当前筛选下没有可分词的评论文本，请调整属性或极性。")
+        elif not _render_wordcloud(freq, mode):
             top = freq_df.head(20)
             st.plotly_chart(
                 hbar_simple(top["词"].tolist(), top["次数"].tolist(), mode=mode,
-                            height=340, title="词频 Top20（词云降级视图）"),
-                use_container_width=True, key="abse_cloud_fallback")
+                            height=layout.height("m"),
+                            title="词频 Top20（词云降级视图）"),
+                key="abse_cloud_fallback")
             st.caption("降级视图与右栏词频口径一致，仅展示次数最多的 20 个词。")
 
     # ---- 关键词高亮评论（分页）
-    section_header("关键词高亮评论", subtitle="正文中标出高频词，支持分页与排序",
-                   tag="COMMENTS")
-    s1, s2 = st.columns([2, 3])
-    with s1:
-        sort_by = st.radio("排序方式", ["情感升序", "情感降序", "时间倒序"],
-                           horizontal=True, key="abse_sort")
-    with s2:
-        size = st.selectbox("每页条数", [10, 20, 50], index=0, key="abse_page_size")
-
     f_attr = F.Filters(**{**f.__dict__, "attrs": [attr], "polarity": pol})
     f_attr_json = store.filters_json(f_attr)
-    df0, total = _comment_page(f_attr_json, 0, size, sort_by, version)
-    n_pages = max((total + size - 1) // size, 1)
-    page_input = st.number_input("页码（从 0 开始）", min_value=0, max_value=9999,
-                                 value=0, step=1, key="abse_page")
-    page = min(int(page_input or 0), n_pages - 1)
-    page_df = df0 if page == 0 else _comment_page(f_attr_json, page, size,
-                                                  sort_by, version)[0]
-    st.caption(f"共 {total} 条 · 每页 {size} 条 · 第 {page + 1}/{n_pages} 页"
-               f"（口径：「{attr}」·{pol_text}）")
+    with layout.panel("关键词高亮评论",
+                      f"正文中标出高频词，支持分页与排序；口径：「{attr}」·{pol_text}"):
+        s1, s2, s3 = layout.split("even3")
+        with s1:
+            sort_by = st.radio("排序方式", ["情感升序", "情感降序", "时间倒序"],
+                               horizontal=True, key="abse_sort")
+        with s2:
+            size = st.selectbox("每页条数", [10, 20, 50], index=0,
+                                key="abse_page_size")
+        with s3:
+            page_input = st.number_input("页码（从 0 开始）", min_value=0,
+                                         max_value=9999, value=0, step=1,
+                                         key="abse_page")
 
-    if page_df is None or page_df.empty:
-        st.info("当前条件下没有匹配的评论，可调整属性、极性或页码。")
-        return
+        df0, total = _comment_page(f_attr_json, 0, size, sort_by, version)
+        n_pages = max((total + size - 1) // size, 1)
+        page = min(int(page_input or 0), n_pages - 1)
+        page_df = df0 if page == 0 else _comment_page(f_attr_json, page, size,
+                                                      sort_by, version)[0]
+        st.caption(f"共 {total} 条 · 每页 {size} 条 · 第 {page + 1}/{n_pages} 页"
+                   f"（口径：「{attr}」·{pol_text}）")
 
-    show_cols = [c for c in ("comment_id", "platform", "brand", "model",
-                             "comment_date", "_attr_ground_truth",
-                             "final_sentiment") if c in page_df.columns]
-    table = page_df[show_cols].rename(columns=_COLUMN_LABEL).copy()
-    st.dataframe(table, hide_index=True, use_container_width=True)
+        if page_df is None or page_df.empty:
+            st.info("当前条件下没有匹配的评论，可调整属性、极性或页码。")
+            return
 
-    st.caption(f"正文高亮关键词（Top{len(words)}）：" + ("、".join(words) if words else "无"))
-    for _, row in page_df.iterrows():
-        st.markdown(_comment_block(row, words, mode), unsafe_allow_html=True)
+        show_cols = [c for c in ("comment_id", "platform", "brand", "model",
+                                 "comment_date", "_attr_ground_truth",
+                                 "final_sentiment") if c in page_df.columns]
+        table = page_df[show_cols].rename(columns=_COLUMN_LABEL).copy()
+        st.dataframe(table, hide_index=True, width="stretch")
+
+        st.caption(f"正文高亮关键词（Top{len(words)}）：" +
+                   ("、".join(words) if words else "无"))
+        for _, row in page_df.iterrows():
+            st.markdown(_comment_block(row, words, mode), unsafe_allow_html=True)
 
 
 def _tab_rival(mode: str, fjson: str, version: int) -> None:
@@ -487,17 +515,20 @@ def _tab_rival(mode: str, fjson: str, version: int) -> None:
         st.info("当前筛选下没有车型数据。")
     else:
         shown = rk.rename(columns={"brand": "品牌", "model": "车型"})
-        st.dataframe(shown, hide_index=True, use_container_width=True)
+        with layout.panel("车型口碑明细",
+                          "含评论数与正向率等完整指标，与下方排行同口径。"):
+            st.dataframe(shown, hide_index=True, width="stretch")
 
         disp = rk.copy()
         disp["车型"] = disp["brand"].astype(str) + " " + disp["model"].astype(str)
         bars = disp.sort_values("情感均值", ascending=False)
-        height = max(260, 30 * len(bars) + 90)
-        st.plotly_chart(
-            rank_bars(bars, x="情感均值", y="车型", mode=mode, height=height,
-                      title="车型情感均值排行（VADER，-1 ~ 1）"),
-            use_container_width=True, key="abse_rank_bars")
-        st.caption("条形越长表示口碑越好；完整指标（评论数、正向率）见上方表格。")
+        height = _snap_height(max(layout.height("s"), 30 * len(bars) + 90))
+        with layout.panel("车型情感均值排行",
+                          "条形越长表示口碑越好（VADER，-1 ~ 1）；完整指标见上方明细表。"):
+            st.plotly_chart(
+                rank_bars(bars, x="情感均值", y="车型", mode=mode, height=height,
+                          title=None),
+                key="abse_rank_bars")
 
     # ---- 品牌 × 属性：情感均值 / 评论数 双矩阵，指标切换
     section_header("品牌 × 属性对比", subtitle="情感均值与评论数双矩阵对照", tag="MATRIX")
@@ -516,29 +547,28 @@ def _tab_rival(mode: str, fjson: str, version: int) -> None:
     side = cnt_m if is_mean else mean_m
     side_name = "评论数" if is_mean else "情感均值"
 
-    lc, rc = st.columns([3, 2])
+    lc, rc = layout.split("main_rail")
     with lc:
-        if main.empty:
-            st.info(f"当前筛选下没有「{metric}」矩阵数据。")
-        else:
-            st.plotly_chart(
-                heatmap(main, mode=mode, height=360, diverging=is_mean,
-                        fmt=".3f" if is_mean else ".0f",
-                        title=f"品牌 × 属性 · {metric}"),
-                use_container_width=True, key="abse_matrix_heat")
-            if is_mean:
-                st.caption("数值为情感均值（VADER，-1 ~ 1），行=品牌、列=属性；"
-                           "颜色越绿表示该品牌在该属性上的口碑越好。")
+        with layout.panel(f"品牌 × 属性 · {metric}",
+                          "数值为情感均值（VADER，-1 ~ 1），行=品牌、列=属性；颜色由红到绿表示口碑由差到好。"
+                          if is_mean else
+                          "数值为筛选后的评论条数，行=品牌、列=属性；颜色越深表示样本量越充足。"):
+            if main.empty:
+                st.info(f"当前筛选下没有「{metric}」矩阵数据。")
             else:
-                st.caption("数值为筛选后的评论条数，行=品牌、列=属性；"
-                           "颜色越深表示样本量越充足。")
+                st.plotly_chart(
+                    heatmap(main, mode=mode, height=layout.height("m"),
+                            diverging=is_mean,
+                            fmt=".3f" if is_mean else ".0f",
+                            title=f"品牌 × 属性 · {metric}"),
+                    key="abse_matrix_heat")
     with rc:
-        st.markdown(f"**{side_name}矩阵（明细）**")
-        if side.empty:
-            st.info(f"当前筛选下没有「{side_name}」矩阵数据。")
-        else:
-            st.dataframe(side, hide_index=True, use_container_width=True)
-            st.caption(f"与左侧「{metric}」矩阵同口径，便于逐格核对。")
+        with layout.panel(f"{side_name}矩阵（明细）",
+                          f"与左侧「{metric}」矩阵同口径，便于逐格核对。"):
+            if side.empty:
+                st.info(f"当前筛选下没有「{side_name}」矩阵数据。")
+            else:
+                st.dataframe(side, hide_index=True, width="stretch")
     st.markdown(legend_html(), unsafe_allow_html=True)
     st.caption("属性色标与全站图表一致。")
 
@@ -551,13 +581,11 @@ def render() -> None:
     fjson = store.filters_json(f)
     version = store.data_version()
 
-    section_header(
+    layout.page_head(
         "属性情感分析",
-        subtitle="以六大属性为轴，串联评论量、情感极性、流向链路与竞品对照",
-        tag="ABSE")
+        "以六大属性为轴，串联评论量、情感极性、流向链路与竞品对照")
     callout(_filter_summary(f))
     status_chip("VADER × 朴素贝叶斯 · 双模型一致口径", "ok")
-    st.markdown("")
 
     kpi = _cached("kpi", fjson, version, {}) or {}
     ov = _cached("overview", fjson, version, pd.DataFrame())
@@ -567,7 +595,6 @@ def render() -> None:
                     "或到「数据管理」页重新运行数据流水线。")
         return
 
-    st.markdown("")
     kpi_row(_kpi_cards(ov, kpi))
 
     attrs = ov["属性"].tolist() if "属性" in ov.columns else list(attribute_colors())

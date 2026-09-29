@@ -18,7 +18,7 @@ from services.features import Filters
 
 DEFAULTS = {
     "dsh.theme": "dark",
-    "dsh.view": "决策总览",
+    "dsh.view": "产品导览",
     "dsh.filters": {},
     "dsh.scenario": Scenario().model_dump(),
     "dsh.overrides": {},          # {"ahp_matrix": [...], "dematel_z": [...], "w3": [...]}
@@ -29,10 +29,44 @@ DEFAULTS = {
 
 
 def init() -> dict:
+    fresh_theme = "dsh.theme" not in st.session_state
     for k, v in DEFAULTS.items():
         if k not in st.session_state:
             st.session_state[k] = v.copy() if isinstance(v, dict) else v
+    if fresh_theme:                      # 新会话：沿用上次保存的主题偏好
+        saved = _load_prefs().get("theme")
+        if saved in ("dark", "light"):
+            st.session_state["dsh.theme"] = saved
     return st.session_state
+
+
+# ---------------------------------------------------------------- 偏好持久化
+def _prefs_path():
+    from pathlib import Path
+    return Path(__file__).resolve().parents[1] / "data" / "ui_prefs.json"
+
+
+def _load_prefs() -> dict:
+    import json
+    try:
+        with open(_prefs_path(), encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _save_prefs(**kv) -> None:
+    import json
+    try:
+        p = _prefs_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        data = _load_prefs()
+        data.update({k: v for k, v in kv.items() if v is not None})
+        with open(p, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, ensure_ascii=False, indent=2)
+    except Exception:      # 持久化失败不影响运行
+        pass
 
 
 # ---------------------------------------------------------------- theme / view
@@ -41,7 +75,10 @@ def theme() -> str:
 
 
 def set_theme(v: str) -> None:
-    st.session_state["dsh.theme"] = "light" if v in ("light", "亮色") else "dark"
+    mode = "light" if v in ("light", "亮色") else "dark"
+    if st.session_state.get("dsh.theme") != mode:
+        st.session_state["dsh.theme"] = mode
+        _save_prefs(theme=mode)          # 记住选择，刷新页面后仍生效
 
 
 def toggle_theme() -> str:
@@ -50,7 +87,7 @@ def toggle_theme() -> str:
 
 
 def view() -> str:
-    return st.session_state.get("dsh.view", "决策总览")
+    return st.session_state.get("dsh.view", "产品导览")
 
 
 def set_view(v: str) -> None:
@@ -141,16 +178,20 @@ def compute_result(sc: Scenario | None = None, **kw):
 
 
 @st.cache_data(show_spinner=False, max_entries=8)
-def audit_findings(payload: str, version: int) -> list:
+def audit_findings(payload: str, version: int, flags_json: str = "{}") -> list:
     import json
     from core.algorithm.audit import run_audit
     sc = Scenario(**json.loads(payload))
-    return [f.model_dump() for f in run_audit(sc)]
+    # 修复开关显式传入 run_audit（payload 内也含 repair_flags，缓存键随之变化）
+    return [f.model_dump() for f in run_audit(sc, repair_flags=json.loads(flags_json))]
 
 
 def get_audit() -> list:
+    import json
     from core.algorithm.models import AuditFinding
-    raw = audit_findings(scenario().model_dump_json(), data_version())
+    sc = scenario()
+    raw = audit_findings(sc.model_dump_json(), data_version(),
+                         json.dumps(sc.repair_flags, sort_keys=True))
     return [AuditFinding(**f) for f in raw]
 
 
