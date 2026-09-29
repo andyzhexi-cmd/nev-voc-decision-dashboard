@@ -1,0 +1,42 @@
+# 智评车行 · 决策看板 — 云端/镜像运行期依赖（requirements.txt 的精简版）
+#
+# 用法（Streamlit Community Cloud / Docker / 其它 PaaS）：
+#   把本文件内容复制成仓库根的 requirements.txt 即可；版本与本机 venv 完全一致。
+#
+# 与 requirements.txt 的差异：
+#   * 去掉 pytest（只用于本地与 CI 自测）
+#   * 去掉 watchdog（Streamlit 的文件监视器，生产环境不需要）
+#   * 显式补上 pydantic（streamlit 会带，但本产品的算法层直接用到了它）
+#
+# 注意 Python 版本：scipy==1.13.1 没有 Python 3.13 的预编译轮子，
+# 请把运行环境固定在 3.11（推荐）或 3.12，否则构建阶段会尝试源码编译并失败。
+
+# ---------- Web / UI ----------
+streamlit==1.50.0
+streamlit-option-menu==0.4.0
+streamlit-shadcn-ui==0.1.19
+streamlit-echarts==0.4.0
+plotly==7.1.0
+
+# ---------- 数据 / 科学计算 ----------
+pandas==2.3.3
+numpy==2.0.2
+scipy==1.13.1
+scikit-learn==1.6.1
+pyarrow==21.0.0
+PyYAML==6.0.3
+pydantic==2.13.5
+
+# ---------- NLP / 批处理 ----------
+jieba==0.42.1
+matplotlib==3.9.4
+
+# ---------- 报告导出 ----------
+pypdf==6.19.0
+reportlab==5.0.1
+openpyxl==3.1.5
+wordcloud==1.9.6
+Pillow==11.3.0
+
+# ---------- Python 3.9 兼容（3.11+ 可删除此行） ----------
+eval-type-backport==0.4.0

@@ -73,16 +73,20 @@ def _age(ts: float) -> str:
 
 
 def _read(path: Path, usecols: list[str] | None = None, parquet_fallback: bool = True) -> pd.DataFrame:
-    """读取表格；优先 parquet 缓存（列裁剪 + 类型优化），缺失时读 CSV 并回写缓存。"""
-    if not path.exists():
-        return pd.DataFrame()
+    """读取表格；优先 parquet 缓存（列裁剪 + 类型优化）。
+
+    部署约定：CSV 源文件可以不入库（体积大），只要 `data/features/<name>.parquet` 存在，
+    即使对应 CSV 缺失也能正常读取；两者都在时取更新的那个。
+    """
     pq = FEATURES_DIR / (path.stem + ".parquet")
-    if parquet_fallback and pq.exists() and pq.stat().st_mtime >= path.stat().st_mtime:
+    fresh_pq = pq.exists() and (not path.exists() or pq.stat().st_mtime >= path.stat().st_mtime)
+    if parquet_fallback and fresh_pq:
         try:
-            df = pd.read_parquet(pq, columns=usecols)
-            return df
+            return pd.read_parquet(pq, columns=usecols)
         except Exception:
             pass
+    if not path.exists():
+        return pd.DataFrame()
     kw = {"usecols": usecols} if usecols else {}
     try:
         df = pd.read_csv(path, **kw)

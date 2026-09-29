@@ -1,0 +1,4 @@
+# Streamlit Community Cloud / Docker（Debian）用的 apt 依赖，一行一个包
+# 说明：Linux 上没有 macOS 自带的中文字体，词云（wordcloud）与聚类诊断图（matplotlib）
+#       需要 CJK 字体才能正确渲染；reportlab 生成 PDF 时有内置 STSong-Light 兜底。
+fonts-noto-cjk

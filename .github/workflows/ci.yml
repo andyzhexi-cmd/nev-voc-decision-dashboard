@@ -1,0 +1,37 @@
+name: CI
+
+# 推送/PR 即跑：语法检查 + 单元测试。
+# 目的：别把坏版本推到 Streamlit Community Cloud / Render 上（那两边都是"部署即上线"）。
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"          # 与 runtime.txt / 部署文档保持一致
+          cache: pip
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 语法检查
+        run: python scripts_syntax_check.py
+
+      - name: 单元测试 + 六视图冒烟
+        run: python -m pytest tests/ -q
+
+      - name: 部署自检（文件 / 数据包 / import 覆盖）
+        run: python 部署/check_deploy_ready.py

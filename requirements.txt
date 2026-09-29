@@ -17,6 +17,7 @@ scipy==1.13.1
 scikit-learn==1.6.1                     # 聚类（KMeans / 轮廓系数）
 pyarrow==21.0.0                         # parquet 中间层
 PyYAML==6.0.3                           # config/baselines.yaml · config/theme.yaml
+pydantic==2.13.5                        # 算法层数据模型（streamlit 会带，这里显式钉版本）
 
 # ---------- NLP / 批处理流水线 ----------
 jieba==0.42.1                           # 中文分词

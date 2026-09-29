@@ -1,0 +1,17 @@
+# 本地一键跑生产镜像（在 产品实现/ 目录执行）
+#   docker compose -f 部署/docker-compose.yml up --build
+# 然后打开 http://127.0.0.1:8501
+services:
+  dashboard:
+    build:
+      context: ..
+      dockerfile: 部署/Dockerfile
+    image: zhiping-nexv:1.0
+    container_name: zhiping-nexv
+    ports:
+      - "8501:8501"
+    environment:
+      MPLCONFIGDIR: /tmp/mplconfig
+      STREAMLIT_SERVER_HEADLESS: "true"
+      STREAMLIT_BROWSER_GATHER_USAGE_STATS: "false"
+    restart: unless-stopped

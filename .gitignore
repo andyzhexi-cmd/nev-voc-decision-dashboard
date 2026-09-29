@@ -2,9 +2,12 @@ vene/
 __pycache__/
 *.pyc
 .DS_Store
-data/raw/*.csv
+# 数据：只提交「部署数据包」，其余中间产物不入库（详见 部署/03-数据与产物体积.md）
+data/raw/*
+!data/raw/comments_raw.csv
 data/processed/*.csv
-data/features/*.parquet
+data/features/*
+!data/features/*.parquet
 outputs/figures/*.png
 outputs/results/*.csv
 outputs/reports/*

@@ -16,6 +16,28 @@ cd 产品实现
 - 所有依赖隔离在 `vene/`（Python 3.9.6，arm64），**不改动系统配置**
 - 首次启动会自动生成仿真评论数据（51,224 条，约 2 秒）
 
+## 部署到公网（GitHub）
+
+部署资产集中在 `部署/`，平台要读的 `requirements.txt` / `packages.txt` / `runtime.txt` /
+`.streamlit/config.toml` 与入口 `app.py` 一起留在仓库根。推送前先自检：
+
+```bash
+./vene/bin/python 部署/check_deploy_ready.py    # 文件 / 数据包 / import 覆盖 / 体积
+./vene/bin/python 部署/prepare_public_data.py   # 部署数据包体检（≈ 9.3 MB）
+```
+
+三条路线（详见 [部署/README.md](部署/README.md)）：
+
+| 路线 | 一句话 | 手册 |
+|---|---|---|
+| Streamlit Community Cloud | GitHub 直连、免费、`git push` 即更新（推荐） | [01-Streamlit云部署.md](部署/01-Streamlit云部署.md) |
+| Docker 自托管 | Render / Railway / Fly.io / 自有服务器 + Nginx 鉴权 | [02-Docker与自托管.md](部署/02-Docker与自托管.md) |
+| Hugging Face Spaces | 免登录直接点开的对外试用链接 | [02-Docker与自托管.md](部署/02-Docker与自托管.md#c-hugging-face-spaces) |
+
+> 数据策略：只提交 `data/features/*.parquet`（≈ 4 MB）+ `data/raw/comments_raw.csv`（≈ 5.6 MB）；
+> 读取优先走 parquet，`data/processed/*.csv`（≈ 38 MB）不入库，见
+> [03-数据与产物体积.md](部署/03-数据与产物体积.md)。
+
 ## 架构（企业级重构后）
 
 ```
@@ -23,6 +45,11 @@ cd 产品实现
 ├── app.py                    # 路由 + 主题注入 + 全局筛选（<200 行，零业务逻辑）
 ├── run.command               # Mac 一键启动
 ├── requirements.txt          # 依赖清单（已锁定版本）· requirements.lock.txt 全量锁定
+├── packages.txt              # 云端 apt 依赖（Linux 中文字体）
+├── runtime.txt               # 云端 Python 版本提示（python-3.11）
+├── .dockerignore             # 镜像构建排除项
+├── .github/workflows/ci.yml  # 推送即跑：语法检查 + 单测 + 部署自检
+├── 部署/                     # ★ 部署资产（Docker / 云端依赖 / 自检脚本 / 逐条手册）
 │
 ├── config/                   # ★ 配置层（单一事实来源）
 │   ├── baselines.yaml        # 论文表5.7–5.20 全部基准 + 审计发现定义
@@ -53,7 +80,7 @@ cd 产品实现
 ├── state/store.py            # ★ 会话状态唯一入口（theme / view / filters / scenario / overrides）
 │
 ├── ui/                       # ★ 表现层
-│   ├── layout.py             # 版式系统：7 组具名栅格 / 统一面板 panel / 高度档位 150·260·340·440
+│   ├── layout.py             # 版式系统：9 组具名栅格 / 统一面板 panel / 高度档位 150·260·340·440
 │   ├── theme.py              # 设计令牌 → CSS（8/16/32 间距三档）/ Plotly / ECharts / 明暗同步
 │   ├── components/           # KPI 卡、徽章、图表构建器（Plotly 主 + ECharts 桑基 / 旭日）
 │   └── views/                # 六个视图（互不 import）
@@ -62,7 +89,7 @@ cd 产品实现
 │       ├── sentiment_explorer.py # ② 属性情感分析（总览 / 链路 / 下钻 / 竞品）
 │       ├── simulator.py          # ③ PLTS-VIKOR 交互式模拟器（参数 / 中间量 / 敏感性 / 矩阵编辑）
 │       ├── insights_report.py    # ④ 洞察与报告（ISA / 敏感性 / 方法对比 / 审计 / 导出）
-│       └── data_manager.py       # ⑤ 数据管理（流水线 / 上传 / 质量）
+│       └── data_manager.py       # ⑤ 数据管理（流水线 / 导入真实评论 / 上传 / 质量 / 字段字典）
 │
 ├── tests/                    # 单测 + 应用级冒烟（streamlit AppTest，六视图 × 明暗双主题）
 ├── legacy/app_legacy.py      # 重构前单文件版本快照（回归对照）

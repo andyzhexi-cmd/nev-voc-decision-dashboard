@@ -1,0 +1,26 @@
+# Docker 构建上下文 = 产品实现/（见 部署/Dockerfile）
+# 这些目录不进镜像：本机虚拟环境、验收产物、被 gitignore 的中间数据、文档与测试
+vene/
+_shots/
+.git/
+.github/
+legacy/
+docs/
+tests/
+.pytest_cache/
+__pycache__/
+*.pyc
+.DS_Store
+services/.mplconfig/
+
+# 中间产物：云端只需要「部署数据包」（data/features/*.parquet + data/raw/comments_raw.csv）
+data/processed/
+data/upload_tmp/
+data/upload_backups/
+data/ui_prefs.json
+outputs/reports/
+outputs/figures/
+outputs/results/
+
+# 本地/私有配置
+.streamlit/secrets.toml
