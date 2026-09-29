@@ -1,0 +1,10 @@
+# 智评车行 · Streamlit 项目级配置（随仓库分发，不改动系统/用户级配置）
+#
+# toolbarMode 保持 "auto"：顶栏里的「侧栏折叠/展开」按钮与 ⋮ 菜单必须可用，
+# 否则侧栏收起后就无法再次打开。顶栏本身在 ui/theme.py 中被做成透明可穿透层，
+# 不会在首屏顶部留下空白横条；.ds-topbar 右侧预留 56px 给顶栏按钮。
+[client]
+toolbarMode = "auto"
+
+[browser]
+gatherUsageStats = false

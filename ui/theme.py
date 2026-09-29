@@ -128,12 +128,14 @@ _STRUCTURE = """
 /* ============ 1. 页面骨架：侧栏 / 顶栏 / 主区 ============ */
 .stApp {{ background: var(--bg); }}
 [data-testid="stHeader"] {{
+  /* Streamlit 的顶栏是 absolute 覆盖层（源码 StyledHeader: position:absolute;top:0）。
+     这里只把它的「外观」抹掉：不画横条、不吃首屏空间；
+     不覆盖 pointer-events —— 侧栏折叠/展开与 ⋮ 菜单都是顶栏里的悬停显隐控件，
+     交给 Streamlit 自己的规则（透明时 none、有工具条时 auto）才能保证可点。 */
   height: {header_h}px;
-  /* 顶栏是 Streamlit 的 absolute 覆盖层（源码 StyledHeader: position:absolute;top:0），
-     必须实心不透明，否则会像一条毛玻璃压在首屏内容上 */
-  background: var(--bg);
+  background: transparent;
   backdrop-filter: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-bottom: none;
 }}
 section[data-testid="stSidebar"] {{ width: {sidebar}px; border-right: 1px solid var(--border); }}
 section[data-testid="stSidebar"] > div {{
@@ -141,9 +143,8 @@ section[data-testid="stSidebar"] > div {{
 }}
 [data-testid="stMainBlockContainer"] {{
   max-width: {max_width}px;
-  /* 顶部让位 = 头部高 56px + 24px 呼吸（Streamlit 原生给 6rem），
-     少于此值首屏标题就会被顶栏遮住 */
-  padding: calc({header_h}px + 24px) 32px 48px;
+  /* 首屏从顶部 12px 起：顶栏已透明可穿透，不再需要为它留 56px+ 空白 */
+  padding: 12px 32px 48px;
 }}
 /* 间距三档制（参考 Shilp Sutra 三档节奏 8/16/32 与 NHS 卡片规范：卡内 16、卡间 32） */
 [data-testid="stVerticalBlock"] > div {{ gap: var(--gap-m); }}
@@ -154,9 +155,10 @@ section[data-testid="stSidebar"] > div {{
 .ds-pagehead .ph-title {{ font-size: 26px; font-weight: 800; letter-spacing: .01em; color: var(--text); }}
 .ds-pagehead .ph-sub {{ font-size: 13px; color: var(--muted); margin-top: 4px; line-height: 1.6; }}
 .ds-pagehead .ph-chips {{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }}
-/* 顶部状态条：左侧视图名 + 右侧徽章行（整行一条基线，不再各自漂浮） */
+/* 顶部状态条：左侧视图名 + 右侧徽章行（整行一条基线，不再各自漂浮）
+   右侧留 56px：顶栏已透明，⋮ 菜单浮在右上角，避免压住徽章 */
 .ds-topbar {{ display: flex; align-items: center; justify-content: space-between;
-  gap: 18px; flex-wrap: wrap; padding: 2px 0 12px;
+  gap: 18px; flex-wrap: wrap; padding: 2px 56px 12px 0;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
   margin-bottom: 6px; }}
 .ds-topbar .tb-title {{ font-size: 23px; font-weight: 800; letter-spacing: .01em; color: var(--text); }}
@@ -256,7 +258,9 @@ code {{ background: var(--panel-alt); color: var(--brand2); padding: 1px 5px; bo
   font-size: .92em; }}
 pre code {{ color: var(--text); }}
 footer, [data-testid="stStatusWidget"] {{ color: var(--muted) !important; font-size: 11.5px; }}
-[data-testid="stToolbar"] {{ display: none; }}
+/* 顶栏工具条必须保留：侧栏「收起 / 展开」按钮和 ⋮ 菜单都在里面，
+   整条 display:none 会让侧栏收起后再也打不开（只隐藏本地演示无意义的 Deploy） */
+[data-testid="stAppDeployButton"] {{ display: none !important; }}
 /* ---- 明暗兜底：滑块 / 单选 / 复选 / 进度 / 提示（跟随 --primary-color） ---- */
 div[data-baseweb="slider"] [role="slider"] {{ background: var(--brand); border-color: var(--brand); }}
 [data-testid="stRadio"] input:checked + div > div {{ background: var(--brand) !important; }}

@@ -9,7 +9,7 @@ outputs/figures/*.png
 outputs/results/*.csv
 outputs/reports/*
 .pytest_cache/
-.streamlit/
+.streamlit/secrets.toml
 services/.mplconfig/
 
 # UI 偏好（明暗选择，本机）
@@ -18,3 +18,6 @@ data/ui_prefs.json
 # 真实数据接入：上传临时文件与覆盖前备份（含真实评论，不入库）
 data/upload_tmp/
 data/upload_backups/
+
+# 本地视觉验收（headless Chrome 截图与临时 profile）
+_shots/

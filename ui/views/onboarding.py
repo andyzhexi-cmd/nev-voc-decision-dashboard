@@ -324,7 +324,7 @@ def render() -> None:
          "delta": f"最近更新 {fresh['age']}",
          "hint": "原始 → 分词 → 聚类 → 情感 → 决策 → ISA"},
     ])
-    st.markdown(legend_html())
+    st.markdown(legend_html(), unsafe_allow_html=True)
 
     # ------------------------------------------------------ 2. 3 分钟上手路线
     section_header("3 分钟上手路线", "五步走完：结论 → 证据 → 算法 → 交付 → 接数据；点按钮直接跳转",
