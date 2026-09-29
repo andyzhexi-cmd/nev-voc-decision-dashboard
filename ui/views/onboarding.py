@@ -102,9 +102,13 @@ ROUTES: list[dict] = [
     {"view": "属性情感分析", "eta": "90 秒",
      "body": "再看证据：六属性情感热力图、平台→属性→极性桑基链路、词频与评论下钻。"},
     {"view": "PLTS-VIKOR 模拟器", "eta": "90 秒",
-     "body": "自己动手：改 λ、v、理想解与权重，四个中间矩阵与排序实时跟着变。"},
+     "body": "自己动手：改 λ、v、理想解与权重，AHP / DEMATEL / PLTS 决策矩阵可直接编辑"
+             "（实时体检 + 撤销重做），四个中间矩阵与排序实时跟着变。"},
     {"view": "洞察与报告", "eta": "60 秒",
      "body": "拿走结果：ISA 改进四象限、四方法对比、审计面板，一键导出 Excel / Markdown / PDF。"},
+    {"view": "数据管理", "eta": "120 秒",
+     "body": "接真实数据：上传 CSV / XLSX → 列映射 → 干跑体检 → 确认落盘（覆盖前自动备份），"
+             "再看流水线与数据质量。"},
 ]
 
 #: 五层架构（自上而下）：code 层号 / duty 一句话职责 / core 标注核心层
@@ -149,7 +153,7 @@ PAPER_STEPS: list[dict] = [
     {"t": "洞察与报告 导出", "d": "审计结论写入 Excel / MD / PDF 的「审计发现」章节"},
 ]
 BIZ_STEPS: list[dict] = [
-    {"t": "CSV 评论（车评）", "d": "上传或脚本生成，含品牌 / 车型 / 日期 / 平台"},
+    {"t": "CSV / XLSX 评论（车评）", "d": "「数据管理 → 导入真实评论」体检后落盘，或脚本生成仿真数据"},
     {"t": "清洗分词", "d": "去重停用词 + jieba 分词，产出 comments_cleaned.csv"},
     {"t": "属性聚类", "d": "TF-IDF + KMeans，六属性金标准对照算纯度"},
     {"t": "双模型情感", "d": "VADER 与朴素贝叶斯一致才保留，产出有效评论"},
@@ -323,13 +327,16 @@ def render() -> None:
     st.markdown(legend_html())
 
     # ------------------------------------------------------ 2. 3 分钟上手路线
-    section_header("3 分钟上手路线", "四步走完：结论 → 证据 → 算法 → 交付；点按钮直接跳转",
+    section_header("3 分钟上手路线", "五步走完：结论 → 证据 → 算法 → 交付 → 接数据；点按钮直接跳转",
                    tag="路线")
-    rows = [(0, 1), (2, 3)]
+    rows = [(0, 1), (2, 3), (4, 4)]
     for r, (a, b) in enumerate(rows):
+        if a >= len(ROUTES):
+            break
         cols = layout.split("even")
         _route_card(cols[0], ROUTES[a], a)
-        _route_card(cols[1], ROUTES[b], b)
+        if b != a and b < len(ROUTES):
+            _route_card(cols[1], ROUTES[b], b)
         if r == 0:
             st.markdown('<div class="ob-arrow">↓</div>', unsafe_allow_html=True)
 

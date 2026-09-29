@@ -128,8 +128,11 @@ _STRUCTURE = """
 /* ============ 1. 页面骨架：侧栏 / 顶栏 / 主区 ============ */
 .stApp {{ background: var(--bg); }}
 [data-testid="stHeader"] {{
-  height: {header_h}px; background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(10px);
+  height: {header_h}px;
+  /* 顶栏是 Streamlit 的 absolute 覆盖层（源码 StyledHeader: position:absolute;top:0），
+     必须实心不透明，否则会像一条毛玻璃压在首屏内容上 */
+  background: var(--bg);
+  backdrop-filter: none;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
 }}
 section[data-testid="stSidebar"] {{ width: {sidebar}px; border-right: 1px solid var(--border); }}
@@ -137,7 +140,10 @@ section[data-testid="stSidebar"] > div {{
   padding: 1.1rem 1.1rem 2rem; background: linear-gradient(180deg, var(--panel) 0%, var(--panel-alt) 100%);
 }}
 [data-testid="stMainBlockContainer"] {{
-  max-width: {max_width}px; padding: 16px 32px 48px;
+  max-width: {max_width}px;
+  /* 顶部让位 = 头部高 56px + 24px 呼吸（Streamlit 原生给 6rem），
+     少于此值首屏标题就会被顶栏遮住 */
+  padding: calc({header_h}px + 24px) 32px 48px;
 }}
 /* 间距三档制（参考 Shilp Sutra 三档节奏 8/16/32 与 NHS 卡片规范：卡内 16、卡间 32） */
 [data-testid="stVerticalBlock"] > div {{ gap: var(--gap-m); }}
