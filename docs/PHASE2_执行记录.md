@@ -59,7 +59,8 @@
 | ② 四项审计偏差 | 逐条取证 → 根因 → 可开关的修复动作（AHP 反推一致性矩阵 / DEMATEL 自底向上聚合 / Q 按式4.11 重建 / 敏感性锚定表5.17），四项全部 **已解析**，`unexplained=0` | `docs/审计取证与修复.md`、`tests/test_audit_remediation.py`（12 项）、`ui/components/audit_panel.py` |
 | ③ 不了解项目难上手 | 新增默认落地页「产品导览」：产品定义、3 分钟路线（点击跳转）、五层架构图、两条数据链路、9 条概念词典、可复现性说明、60 秒讲稿、运行命令 | `ui/views/onboarding.py`、`state/store.py` 默认 `dsh.view="产品导览"` |
 | 附：明暗主题不完整 | `theme.sync()` 回写 Streamlit 主题配置（表格/代码块跟随）+ `:root` 覆盖内建组件令牌（滑块/单选/进度条跟随），徽章与面板颜色全部令牌化；选择持久化到 `data/ui_prefs.json` | `ui/theme.py`、`state/store.py` |
-| 附：真实数据接入 | 编码/分隔符嗅探、列别名映射、列错位检测、干跑体检报告、备份后原子落盘、模板与规范 | `services/data_ingest/importer.py`、`tests/test_ingest.py`（10 项）、`docs/数据接入规范.md` |
+| 附：真实数据接入底座 | 编码/分隔符嗅探、列别名映射、列错位检测、干跑体检报告、备份后原子落盘、模板与规范 | `services/data_ingest/importer.py`、`tests/test_ingest.py`（10 项）、`docs/数据接入规范.md` |
+| 追加① 真实数据接入（页面） | 「数据管理 → 导入真实评论」：上传（CSV/TSV/TXT/JSON/XLSX）→ 5 列可改映射 → 干跑体检与前 10 行预览 → 校验失败禁用确认 → 覆盖前自动备份落盘 → 缓存失效并指引重跑流水线；标准模板下载 + 最近备份列表 | `ui/views/data_manager.py` |
 
-验收：六视图 × 明暗双主题 AppTest 无异常；`pytest tests/` 全绿；`scripts_syntax_check.py` 通过；
+验收：六视图 × 明暗双主题 AppTest 无异常；`pytest tests/` 全绿（74 项）；`scripts_syntax_check.py` 通过；
 `st.columns` / `use_container_width` / 硬编码色值 / 手工空行四类 grep 计数均为 0。

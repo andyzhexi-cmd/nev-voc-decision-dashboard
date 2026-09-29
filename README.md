@@ -100,6 +100,8 @@ cd 产品实现
 ## 数据流水线
 
 ```
+真实评论 CSV/XLSX ── 数据管理 · 导入真实评论（体检 → 映射 → 覆盖前备份）──┐
+                                                                        ↓
 data/raw/comments_raw.csv (51,224)
   → services/preprocess    清洗 + jieba 分词 + 六属性词典
   → services/aspect_mining TF-IDF + KMeans（k=7）属性聚类
@@ -108,6 +110,8 @@ data/raw/comments_raw.csv (51,224)
   → core/algorithm         PLTS-VIKOR 决策（六属性 × 12 指标）
   → outputs/reports        Excel / Markdown / PDF 报告
 ```
+
+接入规范（必填列、别名表、编码与分隔符、校验规则、备份与回滚）见 `docs/数据接入规范.md`。
 
 ## 测试
 
@@ -132,4 +136,4 @@ pandas / numpy / scipy / scikit-learn / pyarrow；jieba；reportlab / openpyxl /
 | ② 属性情感分析 | 属性总览表 + 正负构成、品牌×属性热力、平台→属性→极性→重要性档位桑基与旭日、词频 / 词云、评论下钻分页、车型口碑榜 |
 | ③ PLTS-VIKOR 模拟器 | λ / v / 理想解 / 补全 / 方向 / 权重展开全部可调，四个中间矩阵 Tab（PLTS 期望、规范化与效用、权重体系、可能度矩阵），λ-v 敏感性扫描 + 论文表5.18 对照，AHP / DEMATEL / 决策矩阵在线编辑 |
 | ④ 洞察与报告 | ISA 三口径象限 + 改进建议、λ / v 稳健性、四方法对比（表5.19）、完整审计面板、Excel / Markdown / PDF 导出 |
-| ⑤ 数据管理 | 六阶段流水线状态、数据上传、流水线重跑、数据质量与字典 |
+| ⑤ 数据管理 | 六阶段流水线状态、**真实数据导入**（编码/分隔符嗅探、列别名映射可改、干跑体检报告、校验失败不落盘、覆盖前自动备份、标准模板下载、最近备份列表）、流水线重跑、数据质量与字典 |
