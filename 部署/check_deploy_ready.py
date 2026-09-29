@@ -14,10 +14,14 @@ from __future__ import annotations
 
 import ast
 import pathlib
+import re
 import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+
+#: packages.txt 允许的行格式：纯小写包名（可含 + . - ），不接受注释与空行
+_PKG_RE = re.compile(r"^[a-z0-9][a-z0-9+.\-]*$")
 
 # 入口文件 → 平台要求的位置
 REQUIRED_FILES = {
@@ -141,6 +145,21 @@ def main() -> int:
         print(f"  {'✓' if ok else '✗'} {rel:<28} {why}")
         if not ok:
             fails.append(f"缺少 {rel}（{why}）")
+
+    # 1b. packages.txt 只允许「一行一个包名」：注释/空行/中文会让 Cloud 的
+    #     apt 包装器报 `E: Unsupported file / given on commandline`（实测踩过）
+    pkg = ROOT / "packages.txt"
+    if pkg.exists():
+        lines = pkg.read_text(encoding="utf-8").splitlines()
+        bad = [f"第{i}行 {ln!r}" for i, ln in enumerate(lines, 1)
+               if ln.strip() and not _PKG_RE.match(ln.strip())]
+        blank = [i for i, ln in enumerate(lines, 1) if not ln.strip()]
+        if bad or blank:
+            detail = "；".join(bad + ([f"空行 {blank}" ] if blank else []))
+            print(f"  ✗ packages.txt 只能一行一个包名，不能有注释/空行/非 ASCII：{detail}")
+            fails.append("packages.txt 含注释或空行，Cloud 的 apt 步骤会直接失败（只保留纯包名行）")
+        else:
+            print(f"  ✓ packages.txt 格式正确：{', '.join(ln.strip() for ln in lines if ln.strip())}")
 
     # 2. 部署数据包
     print("\n[2/4] 部署数据包（云端唯一数据来源）")

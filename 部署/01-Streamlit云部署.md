@@ -76,6 +76,7 @@ curl -s https://<应用名>.streamlit.app/_stcore/health
 
 | 现象 | 原因 | 处理 |
 |---|---|---|
+| 日志停在 `Apt dependencies were installed from .../packages.txt`，接着 `E: Unsupported file / given on commandline` → `installer returned a non-zero exit code` | **`packages.txt` 里写了注释/空行/中文**：Cloud 把整份文件当包名列表交给 apt，非包名行直接把它喂崩（本仓库实测踩过） | `packages.txt` **只保留一行一个纯包名**（如 `fonts-noto-cjk`），把说明写到文档里；改完推送或点 Reboot |
 | 构建日志 `Failed building wheel for scipy` / `meson` 报错 | 平台默认 Python 3.13，而 `scipy==1.13.1` 没有 cp313 预编译轮子 | Advanced settings 把 Python 改成 **3.11**（或 3.12）后 Reboot |
 | 页面打开但所有数字为空、KPI 显示 0 | 部署数据包没推上去（被 `.gitignore` 挡了，或用了 `git add` 漏加） | 跑 `部署/check_deploy_ready.py` 看第 2 节；缺就 `git add data/features data/raw/comments_raw.csv` 后推送 |
 | `ModuleNotFoundError: No module named 'streamlit_echarts'` 之类 | `requirements.txt` 缺包 | 跑 `部署/check_deploy_ready.py` 第 3 节（import 覆盖检查）并按提示补 |

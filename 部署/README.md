@@ -58,7 +58,7 @@ Streamlit Community Cloud 只认**仓库根**或**入口文件同目录**下的�
 |---|---|---|
 | `app.py` | 应用入口 | 平台找不到主文件 |
 | `requirements.txt` | Python 依赖（已钉版本） | 无依赖或版本漂移 |
-| `packages.txt` | apt 依赖：`fonts-noto-cjk`（Linux 中文字体） | 词云、聚类诊断图中文变方框 |
+| `packages.txt` | apt 依赖：只写包名（当前 `fonts-noto-cjk`），**不能有注释/空行/中文** | Cloud 的 apt 步骤报 `E: Unsupported file / given on commandline` 并中断构建 |
 | `runtime.txt` | `python-3.11`（平台支持时生效；Cloud 也可在 UI 里选） | 用 3.13 时 `scipy==1.13.1` 没有预编译轮子，构建失败 |
 | `.streamlit/config.toml` | 项目级配置（顶栏保留侧栏开关、关闭 Deploy 按钮相关项） | 顶栏/侧栏体验退化 |
 | `data/features/*.parquet` + `data/raw/comments_raw.csv` | 部署数据包（详见下文） | 页面能打开但所有指标为空 |
