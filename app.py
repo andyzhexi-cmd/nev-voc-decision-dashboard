@@ -203,7 +203,3 @@ except Exception as exc:  # 视图失败不拖垮整个应用
     with st.expander("查看错误详情", expanded=False):
         st.code(tb)
     st.info("页面加载出错，已降级。可切换其他视图或重置场景后重试。")
-
-st.markdown("---")
-st.caption("智评车行 · 融合情感分析与 PLTS-VIKOR 的新能源汽车产品改进多属性决策 | "
-           "论文校准与在线复算双口径 · 全链路可审计 | 论文出处：上海理工大学硕士学位论文")

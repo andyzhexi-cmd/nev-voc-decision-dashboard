@@ -1,18 +1,16 @@
 """ui.views.onboarding — 0. 产品导览（默认落地页）
 
-面向读者：不了解项目背景的评审老师 / 面试官，3 分钟看懂
+面向第一次打开产品的人，3 分钟看懂
 「这是什么 → 为什么可信 → 结构怎么组织 → 从哪点开始」。
 
 区块
 ----
 1. 这是什么        产品定义 + 5 张现算 KPI
-2. 3 分钟上手路线   4 张卡 + 跳转按钮（决策总览 / 情感分析 / 模拟器 / 报告）
-3. 产品组织架构    五层分层图（数据 → 服务 → 算法 → 状态 → 表现）
-4. 两条数据链路    论文基准链路 与 业务数据链路 并列（含「在哪看」）
-5. 关键概念词典    9 条术语（面向没读过论文的人）
-6. 可复现性说明    SSOT 口径 + 9 项审计实时状态
-7. 60 秒讲稿      问题—方法—结果—可信度—工程化
-8. 本地运行与出处  命令 / 测试状态 / 论文出处 / 数据新鲜度
+2. 3 分钟上手路线   5 张卡 + 跳转按钮（决策总览 / 情感分析 / 模拟器 / 报告 / 数据管理）
+3. 产品组织架构    五层架构栈（数据 → 服务 → 算法 → 状态 → 表现）
+4. 两条数据链路    基准链路 与 业务数据链路 并列（含「在哪看」）
+5. 关键概念词典    9 条术语
+6. 可复现性说明    唯一事实源口径 + 9 项审计实时状态
 
 约定：版式走 ui.layout（split + panel），颜色一律用主题令牌（var(--*)），
 不读大 CSV（kpi 走 st.cache_data，新鲜度走 data_store 单次调用）。
@@ -183,20 +181,6 @@ GLOSSARY: list[dict] = [
      "body": "9 项一致性检查，把论文自身冲突实时算给你看，不做静默修正。"},
 ]
 
-#: 60 秒讲稿
-TALKING: list[dict] = [
-    {"tone": "negative", "title": "1 · 问题",
-     "body": "新能源车主改款资源有限：六属性十二指标同时要改，先改谁、改到什么程度，缺可量化依据。"},
-    {"tone": "info", "title": "2 · 方法",
-     "body": "情感分析给出「满意度」，PLTS-VIKOR 给出「重要度 → 折中排序」，两者在 ISA 四象限合流。"},
-    {"tone": "positive", "title": "3 · 结果",
-     "body": "输出六属性改进优先级与动作建议，并与 TOPSIS、前景理论、传统 VIKOR 四方法交叉验证。"},
-    {"tone": "neutral", "title": "4 · 可信度",
-     "body": "论文基准为唯一事实源，9 项审计实时核对，能复现的写通过、冲突的标偏差并给数字。"},
-    {"tone": "info", "title": "5 · 工程化",
-     "body": "分层架构、41 项单测 + 5 视图应用级冒烟、缓存与中间层，双击 run.command 即可本地运行。"},
-]
-
 
 # ------------------------------------------------------------------ HTML 构造
 def _chain_html(steps: list[dict]) -> str:
@@ -255,22 +239,6 @@ def _status_counts(findings: list) -> dict:
     return out
 
 
-def _filters_brief(f) -> str:
-    """全局筛选摘要（未筛选时明说全量，避免读者误以为被裁剪）。"""
-    parts = []
-    if f.brand:
-        parts.append("品牌 " + "/".join(f.brand))
-    if f.model:
-        parts.append("车型 " + "/".join(f.model))
-    if f.attrs:
-        parts.append("属性 " + "/".join(f.attrs))
-    if f.polarity:
-        parts.append(f"极性 {f.polarity}")
-    if f.date_range:
-        parts.append(f"时间 {f.date_range[0]} ~ {f.date_range[1]}")
-    return " · ".join(parts) if parts else "全量数据（未筛选）"
-
-
 # ------------------------------------------------------------------ 视图
 def render() -> None:
     st.markdown(GUIDE_STYLE, unsafe_allow_html=True)
@@ -283,8 +251,6 @@ def render() -> None:
     findings = store.get_audit()
     counts = _status_counts(findings)
     fresh = data_store().freshness()
-    sc = store.scenario()
-    mode_label = "论文校准模式" if sc.mode == "calibrated" else "在线复算模式"
 
     n_raw = int(k.get("n_raw", 0))
     n_kept = int(k.get("n_kept", 0))
@@ -294,7 +260,7 @@ def render() -> None:
     methods = list(base["method_comparison"])
 
     layout.page_head("产品导览",
-                     "不了解项目也能三分钟上手：这是什么 · 怎么组织 · 数据从哪来 · 从哪开始点")
+                     "三分钟了解：产品定位 · 组织架构 · 数据来源 · 使用路径")
 
     # ---------------------------------------------------------- 1. 这是什么
     section_header("这是什么",
@@ -361,7 +327,7 @@ def render() -> None:
             st.markdown(_chain_html(BIZ_STEPS), unsafe_allow_html=True)
 
     # ------------------------------------------------------ 5. 关键概念词典
-    section_header("关键概念词典", "没读过论文也能看懂页面在说什么（9 条，先扫一遍再往下滑）",
+    section_header("关键概念词典", "9 条术语口径，先扫一遍再往下滑",
                    tag="词典")
     for r in range(3):
         cols = layout.split("even3")
@@ -392,42 +358,4 @@ def render() -> None:
                 f"{audit_badge(f.status)}</span> "
                 f"<b>{f.title}</b><i> — {f.detail}</i></div>", unsafe_allow_html=True)
 
-    # ------------------------------------------------------ 7. 60 秒讲稿
-    section_header("评审 / 面试 60 秒讲稿", "问题 — 方法 — 结果 — 可信度 — 工程化，五句话讲完",
-                   tag="话术")
-    with layout.panel("照着说即可", "数字均来自页面现算值，与看板一致", tag="PITCH"):
-        for pt in TALKING:
-            advice_card({"title": pt["title"], "body": pt["body"], "tone": pt["tone"]})
 
-    # ------------------------------------------------------ 8. 运行与出处
-    section_header("本地运行与出处", "命令、测试状态、论文出处与数据新鲜度", tag="附录")
-    with layout.panel("如何本地运行", "依赖已随仓库提供，无需改动系统配置", tag="RUN"):
-        cols = layout.split("even")
-        with cols[0]:
-            st.markdown(
-                '<div class="ob-kv">'
-                '<b>方式一 · 命令行</b><br><span>进入 <code>产品实现/</code> 后执行：</span><br>'
-                '<span class="ob-code">./vene/bin/python -m streamlit run app.py</span><br><br>'
-                '<b>方式二 · 双击</b><br><span>直接运行 <code>run.command</code>'
-                "（自动选择虚拟环境）</span><br><br>"
-                '<b>自检</b><br><span>41 项单元测试 + 5 视图应用级冒烟：'
-                '<span class="ob-code">./vene/bin/python -m pytest tests/ -q</span></span>'
-                "</div>",
-                unsafe_allow_html=True)
-        with cols[1]:
-            age = fresh["age"] if fresh.get("all_ready") else "存在缺失产物"
-            st.markdown(
-                '<div class="ob-kv">'
-                "<b>论文出处</b><br><span>上海理工大学硕士学位论文 ·"
-                "《融合情感分析与PLTS-VIKOR的新能源汽车产品改进多属性决策研究》</span><br>"
-                "<b>数据新鲜度</b><br>"
-                f'<span>六阶段就绪 {fresh["ready"]}/{fresh["total"]} · '
-                f'最近产物 {fresh["newest"]}（{age}）</span><br>'
-                "<b>运行环境</b><br><span>Python 3.9.6 · Streamlit 1.50 · "
-                "依赖锁定 requirements.txt / requirements.lock.txt</span><br>"
-                "<b>当前口径</b><br><span>"
-                + f"{mode_label} · λ={sc.lam:g} · v={sc.v:g} · "
-                + ("达标度方向" if sc.direction == "attainment" else "差值度方向") + "</span><br>"
-                "<b>当前筛选</b><br><span>" + _filters_brief(store.filters()) + "</span>"
-                "</div>",
-                unsafe_allow_html=True)

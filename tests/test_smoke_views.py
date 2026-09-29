@@ -29,8 +29,12 @@ def test_no_exception_any_view():
             err = _render_error(at)
             if err:
                 problems.append((v, "视图渲染失败: " + str(err)[:700]))
-            if len(at.main) < 5:
-                problems.append((v, f"视图渲染元素过少：{len(at.main)}（疑似空页面）"))
+            # 空页面判定看"渲染出的内容量"，不看 main 顶层元素数：
+            # 视图普遍用列/容器铺内容，移除页脚等重构会让顶层元素数波动。
+            if len(at.get("markdown")) < 3 and len(at.get("arrow_data_frame")) == 0 \
+                    and len(at.get("plotly_chart")) == 0:
+                problems.append((v, f"视图渲染内容过少：markdown={len(at.get('markdown'))} "
+                                    f"plotly={len(at.get('plotly_chart'))}（疑似空页面）"))
         except Exception as e:
             problems.append((v, f"AppTest 失败: {type(e).__name__}: {e}"[:700]))
     if problems:
