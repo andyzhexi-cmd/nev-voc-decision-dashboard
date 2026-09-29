@@ -189,12 +189,16 @@ def _apply_mapping(df: pd.DataFrame, mapping: dict) -> pd.DataFrame:
 
 
 def _parse_dates(series: pd.Series) -> tuple[pd.Series, int]:
-    parsed = pd.to_datetime(series, errors="coerce", format="mixed")
-    if parsed.isna().mean() > 0.5:          # 整体失败时逐格式重试
+    try:
+        parsed = pd.to_datetime(series, errors="coerce", format="mixed")
+    except (TypeError, ValueError, NotImplementedError):
+        parsed = pd.to_datetime(series, errors="coerce")
+    if parsed.isna().any():                   # 混合写法（2024/05/02、2024年5月3日…）逐格式补齐
         for fmt in DATE_FORMATS:
             retry = pd.to_datetime(series, errors="coerce", format=fmt)
-            if retry.notna().mean() > parsed.notna().mean():
-                parsed = retry
+            parsed = parsed.fillna(retry)
+            if not parsed.isna().any():
+                break
     bad = int(parsed.isna().sum())
     return parsed, bad
 
@@ -275,6 +279,7 @@ def import_comments(path: str | Path, mapping: dict | None = None, *,
 
     df, rep = standardize(raw, mapping, dedupe=dedupe)
     rep.__dict__.update(meta)
+    rep.columns_raw = [str(c) for c in raw.columns]
     rep.column_mapping = dict(mapping)
     rep.missing_required = [c for c in REQUIRED if not mapping.get(c)]
     rep.missing_optional = [c for c in OPTIONAL if not mapping.get(c)]
