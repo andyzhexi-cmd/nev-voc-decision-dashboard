@@ -38,7 +38,8 @@ KIND_MIME = {
     "pdf": "application/pdf",
 }
 
-STATUS_LABEL = {"pass": "✓ 通过", "warn": "△ 待确认", "fail": "✕ 偏差", "info": "ℹ 说明"}
+STATUS_LABEL = {"pass": "✓ 通过", "resolved": "◆ 已解析", "warn": "△ 待确认",
+                "fail": "✕ 未解释偏差", "info": "ℹ 说明"}
 SEVERITY_LABEL = {"high": "高", "medium": "中", "low": "低"}
 ISA_LABEL = {"paper": "论文表5.20", "figure": "图5.10", "sentiment": "实测情感"}
 QUAD_ORDER = ["改进区", "保持区", "机会区", "低优先级区"]
@@ -114,6 +115,10 @@ def _finding_dict(f: Any) -> dict:
         "id": getattr(f, "id", ""), "severity": getattr(f, "severity", "low"),
         "title": getattr(f, "title", ""), "detail": getattr(f, "detail", ""),
         "status": getattr(f, "status", "info"),
+        "root_cause": getattr(f, "root_cause", ""),
+        "repair": dict(getattr(f, "repair", {}) or {}),
+        "before": dict(getattr(f, "before", {}) or {}),
+        "after": dict(getattr(f, "after", {}) or {}),
         "numbers": dict(getattr(f, "numbers", {}) or {}),
     }
 
@@ -122,6 +127,7 @@ def _audit_summary(findings: Sequence[dict]) -> dict:
     return {
         "total": len(findings),
         "pass": sum(1 for f in findings if f.get("status") == "pass"),
+        "resolved": sum(1 for f in findings if f.get("status") == "resolved"),
         "warn": sum(1 for f in findings if f.get("status") == "warn"),
         "fail": sum(1 for f in findings if f.get("status") == "fail"),
         "high": sum(1 for f in findings if f.get("severity") == "high"),
@@ -457,8 +463,9 @@ def _df_summary(ctx: dict) -> pd.DataFrame:
     if summ:
         items.append(("一致性审计",
                       f"共 {summ.get('total', 0)} 项 · 通过 {summ.get('pass', 0)} · "
-                      f"待确认 {summ.get('warn', 0)} · 偏差 {summ.get('fail', 0)}",
-                      f"高严重度 {summ.get('high', 0)} 项；问题来自论文数据本身，系统不做静默修正"))
+                      f"已解析 {summ.get('resolved', 0)} · "
+                      f"待确认 {summ.get('warn', 0)} · 未解释偏差 {summ.get('fail', 0)}",
+                      f"高严重度 {summ.get('high', 0)} 项；根因与修复动作逐条列示，系统不做静默修正"))
     isa = ctx.get("isa", {}) or {}
     if isa.get("counts"):
         imp = [r["属性"] for r in isa.get("records", []) if r.get("象限") == "改进区"]
@@ -644,15 +651,26 @@ def _df_audit(ctx: dict) -> pd.DataFrame:
     fs = audit.get("findings", []) or []
     if not fs:
         return _empty_df("暂无审计发现")
-    out = [{
-        "编号": f.get("id", ""),
-        "严重度": SEVERITY_LABEL.get(str(f.get("severity")), str(f.get("severity"))),
-        "状态": STATUS_LABEL.get(str(f.get("status")), str(f.get("status"))),
-        "标题": f.get("title", ""),
-        "说明": f.get("detail", ""),
-        "关键数字": _json(f.get("numbers", {})),
-    } for f in fs]
-    return pd.DataFrame(out, columns=["编号", "严重度", "状态", "标题", "说明", "关键数字"])
+    out = []
+    for f in fs:
+        rep = f.get("repair") or {}
+        label = str(rep.get("label") or "")
+        effect = str(rep.get("effect") or "")
+        out.append({
+            "编号": f.get("id", ""),
+            "严重度": SEVERITY_LABEL.get(str(f.get("severity")), str(f.get("severity"))),
+            "状态": STATUS_LABEL.get(str(f.get("status")), str(f.get("status"))),
+            "标题": f.get("title", ""),
+            "说明": f.get("detail", ""),
+            "根因（取证）": f.get("root_cause", ""),
+            "修复动作": label + (f" —— {effect}" if label and effect else ""),
+            "修复前": _json(f.get("before", {})),
+            "修复后": _json(f.get("after", {})),
+            "关键数字": _json(f.get("numbers", {})),
+        })
+    return pd.DataFrame(out, columns=["编号", "严重度", "状态", "标题", "说明",
+                                      "根因（取证）", "修复动作", "修复前", "修复后",
+                                      "关键数字"])
 
 
 def _df_attr(ctx: dict) -> pd.DataFrame:
@@ -892,7 +910,8 @@ def build_markdown(context: dict, out_path: Path) -> Path:
       f"（Kendall τ = {_kendall(ranking, paper_rank):.4f}）")
     if summ:
         A(f"- 一致性审计：共 {summ.get('total', 0)} 项，通过 {summ.get('pass', 0)} 项、"
-          f"待确认 {summ.get('warn', 0)} 项、偏差 {summ.get('fail', 0)} 项（高严重度 {summ.get('high', 0)} 项）")
+          f"已解析 {summ.get('resolved', 0)} 项、待确认 {summ.get('warn', 0)} 项、"
+          f"未解释偏差 {summ.get('fail', 0)} 项（高严重度 {summ.get('high', 0)} 项）")
     if lam_s.get("stability"):
         A(f"- λ 扫描稳健性：{'排序稳定' if lam_s.get('stable') else '**存在排序翻转**'}，"
           f"最低 Kendall τ = {min(lam_s['stability']):.4f}")
@@ -992,6 +1011,12 @@ def build_markdown(context: dict, out_path: Path) -> Path:
         sev = SEVERITY_LABEL.get(str(f.get("severity")), str(f.get("severity")))
         A(f"- **[{st_label}·{sev}] {f.get('title', '')}**（{f.get('id', '')}）")
         A(f"  - {f.get('detail', '')}")
+        if f.get("root_cause"):
+            A(f"  - 根因（取证）：{f.get('root_cause')}")
+        rep = f.get("repair") or {}
+        if rep.get("label"):
+            effect = f"——{rep.get('effect')}" if rep.get("effect") else ""
+            A(f"  - 修复动作：{rep.get('label')}{effect}")
         if f.get("numbers"):
             A(f"  - 关键数字：`{_json(f.get('numbers'))}`")
     A("")
@@ -1200,7 +1225,8 @@ def build_pdf(context: dict, out_path: Path) -> Path:
                      f"排序：{' > '.join(paper_rank) if paper_rank else '—'}"])
     if summ:
         kpi_rows.append(["一致性审计",
-                         f"通过 {summ.get('pass', 0)} / 待确认 {summ.get('warn', 0)} / 偏差 {summ.get('fail', 0)}",
+                         f"通过 {summ.get('pass', 0)} / 已解析 {summ.get('resolved', 0)} / "
+                         f"待确认 {summ.get('warn', 0)} / 未解释 {summ.get('fail', 0)}",
                          f"共 {summ.get('total', 0)} 项，高严重度 {summ.get('high', 0)} 项"])
     isa_imp = [r["属性"] for r in isa.get("records", []) if r.get("象限") == "改进区"]
     kpi_rows.append([f"ISA 改进区（{context.get('isa_source_label', '论文表5.20')}）",
@@ -1246,10 +1272,15 @@ def build_pdf(context: dict, out_path: Path) -> Path:
     # -------- 审计摘要
     story.append(P("四、审计与局限（摘要）", "h1"))
     story.append(P("以下问题来自论文数据本身，系统不做静默修正；完整明细见 Markdown / Excel 版本。", "muted"))
-    body = [[STATUS_LABEL.get(str(f.get("status")), str(f.get("status"))),
-             SEVERITY_LABEL.get(str(f.get("severity")), str(f.get("severity"))),
-             str(f.get("title", ""))]
-            for f in (audit.get("findings", []) or [])]
+    body = []
+    for f in (audit.get("findings", []) or []):
+        rep = f.get("repair") or {}
+        title = str(f.get("title", ""))
+        if rep.get("label"):
+            title += f"（修复：{rep['label']}）"
+        body.append([STATUS_LABEL.get(str(f.get("status")), str(f.get("status"))),
+                     SEVERITY_LABEL.get(str(f.get("severity")), str(f.get("severity"))),
+                     title])
     if body:
         story.append(table(["状态", "严重度", "问题"], body,
                            widths=[24 * mm, 18 * mm, 114 * mm]))

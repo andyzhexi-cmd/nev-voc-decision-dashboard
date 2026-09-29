@@ -281,7 +281,6 @@ def render() -> None:
             st.markdown('<div class="ob-arrow">↓</div>', unsafe_allow_html=True)
 
     # ------------------------------------------------------ 3. 产品组织架构
-    st.markdown("")
     section_header("产品组织架构", "五层分层，每层职责单一、可独立测试；自上而下逐层汇入页面",
                    tag="架构")
     with layout.panel("分层结构", "路径 + 一句话职责（颜色由主题令牌驱动，随明暗切换）",
@@ -292,7 +291,6 @@ def render() -> None:
                 st.markdown('<div class="ob-arrow">↓</div>', unsafe_allow_html=True)
 
     # ------------------------------------------------------ 4. 两条数据链路
-    st.markdown("")
     section_header("两条数据链路", "论文基准链路 与 业务数据链路 并行，在「双口径对照」处汇合",
                    tag="数据流")
     left, right = layout.split("even")
@@ -306,7 +304,6 @@ def render() -> None:
             st.markdown(_chain_html(BIZ_STEPS), unsafe_allow_html=True)
 
     # ------------------------------------------------------ 5. 关键概念词典
-    st.markdown("")
     section_header("关键概念词典", "没读过论文也能看懂页面在说什么（9 条，先扫一遍再往下滑）",
                    tag="词典")
     for r in range(3):
@@ -318,7 +315,6 @@ def render() -> None:
                              "tone": term["tone"]})
 
     # ------------------------------------------------------ 6. 可复现性说明
-    st.markdown("")
     section_header("可复现性说明", "哪些能复现、哪些是论文自身冲突，逐条列示，不做静默修正",
                    tag="可信度")
     callout(
@@ -340,7 +336,6 @@ def render() -> None:
                 f"<b>{f.title}</b><i> — {f.detail}</i></div>", unsafe_allow_html=True)
 
     # ------------------------------------------------------ 7. 60 秒讲稿
-    st.markdown("")
     section_header("评审 / 面试 60 秒讲稿", "问题 — 方法 — 结果 — 可信度 — 工程化，五句话讲完",
                    tag="话术")
     with layout.panel("照着说即可", "数字均来自页面现算值，与看板一致", tag="PITCH"):
@@ -348,7 +343,6 @@ def render() -> None:
             advice_card({"title": pt["title"], "body": pt["body"], "tone": pt["tone"]})
 
     # ------------------------------------------------------ 8. 运行与出处
-    st.markdown("")
     section_header("本地运行与出处", "命令、测试状态、论文出处与数据新鲜度", tag="附录")
     with layout.panel("如何本地运行", "依赖已随仓库提供，无需改动系统配置", tag="RUN"):
         cols = layout.split("even")
