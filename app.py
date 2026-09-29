@@ -19,7 +19,7 @@ import streamlit as st
 from streamlit_option_menu import option_menu
 
 from state import store
-from ui import theme
+from ui import layout, theme
 
 st.set_page_config(
     page_title="智评车行 · 决策看板",
@@ -75,8 +75,8 @@ with st.sidebar:
             "container": {"padding": "0", "background": "transparent"},
             "nav-link": {"font-size": "13.5px", "font-weight": "600",
                          "margin": "2px 0", "border-radius": "10px"},
-            "nav-link-selected": {"background": "linear-gradient(90deg,#4F46E5,#7C3AED)",
-                                  "color": "#fff"},
+            "nav-link-selected": {"background": "linear-gradient(90deg,var(--brand),var(--brand2))",
+                                  "color": "white"},
         },
     )
     if view:
@@ -108,7 +108,7 @@ with st.sidebar:
                         .get({"positive": "仅正面", "negative": "仅负面"}.get(f.polarity, "全部"), 0),
                         horizontal=True)
     st.caption(f"数据范围 {dims['date'][0]} ~ {dims['date'][1]}")
-    c1, c2 = st.columns(2, gap="small")
+    c1, c2 = layout.split("even")
     with c1:
         if st.button("应用", width="stretch", type="primary"):
             store.update_filters(
@@ -123,9 +123,9 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown('<div class="ds-chip chip-brand">视图与场景</div>', unsafe_allow_html=True)
-    t1, t2 = st.columns(2, gap="small")
+    t1, t2 = layout.split("even")
     with t1:
-        if st.button(("🌙 暗色" if MODE == "light" else "☀️ 亮色"), width="stretch"):
+        if st.button(("🌙 切换暗色" if MODE == "light" else "☀️ 切换亮色"), width="stretch"):
             store.toggle_theme()
             st.rerun()
     with t2:
@@ -138,7 +138,7 @@ with st.sidebar:
     fresh = ds_store().freshness()
     st.markdown(
         f'<div style="font-size:11.5px;color:var(--muted);margin-top:12px;line-height:1.8;">'
-        f'数据流水线 <b style="color:{"#34D399" if fresh["all_ready"] else "#FBBF24"}">'
+        f'数据流水线 <b style="color:{"var(--ok-fg)" if fresh["all_ready"] else "var(--warn-fg)"}">'
         f'{fresh["ready"]}/{fresh["total"]}</b> 就绪 · 更新于 {fresh["age"]}<br>'
         f'口径 <b>{"论文校准" if store.scenario().mode == "calibrated" else "在线复算"}'
         f'</b> · λ={store.scenario().lam:g} · v={store.scenario().v:g}</div>',

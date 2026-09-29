@@ -180,6 +180,7 @@ section[data-testid="stSidebar"] > div {{
 .ds-panelfoot {{ font-size: 11.5px; color: var(--muted); border-top: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
   padding-top: 8px; margin-top: 4px; line-height: 1.6; }}
 .ds-note {{ color: var(--muted); }} .ds-note.note-ok {{ color: var(--ok-fg); }}
+.ds-note.note-warn {{ color: var(--warn-fg); }} .ds-note.note-bad {{ color: var(--bad-fg); }}
 /* 面板内的图表/表格贴边对齐，不再各自留白 */
 .stPlotlyChart, [data-testid="stPlotlyChart"] {{ padding: 0; }}
 [data-testid="stDataFrame"] {{ border-radius: var(--radius-sm); overflow: hidden; }}

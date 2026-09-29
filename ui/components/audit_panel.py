@@ -26,6 +26,7 @@ from typing import Callable, Iterable, Sequence
 
 import streamlit as st
 
+from ui import layout
 from ui.components.indicators import (audit_badge, callout, kpi_row,
                                       section_header, severity_tone, status_chip)
 
@@ -131,34 +132,34 @@ def audit_panel(findings: Iterable, repair_flags: dict | None = None,
         switch = rep.get("switch")
         enabled = bool(flags.get(switch, rep.get("enabled", True))) if switch else True
 
-        with st.container():
-            st.markdown("---")
-            head, chip_col = st.columns([0.72, 0.28], gap="small")
+        sev_label = {"high": "高", "medium": "中", "low": "低"}.get(
+            getattr(f, "severity", ""), getattr(f, "severity", ""))
+        with layout.panel(f.title,
+                          subtitle=(getattr(f, "detail", "") or "").strip(),
+                          tag=sev_label):
+            head, chip_col = layout.split("head_action")
             with head:
-                st.markdown(f"#### {f.title}  "
-                            f"<span class='ds-chip chip-muted'>{f.severity}</span>",
-                            unsafe_allow_html=True)
+                st.caption(f"{f.id}"
+                           + (f" · 修复开关：{rep.get('label') or f.id}" if switch else ""))
             with chip_col:
-                status_chip(audit_badge(status), tone=STATUS_TONE.get(status, severity_tone(status)))
-
-            if getattr(f, "detail", ""):
-                st.caption(f.detail)
+                status_chip(audit_badge(status),
+                            tone=STATUS_TONE.get(status, severity_tone(status)))
 
             if getattr(f, "root_cause", ""):
-                st.markdown("**根因（取证）**")
-                st.markdown(f.root_cause.strip())
+                st.markdown(layout.note(f"根因（取证）：{f.root_cause.strip()}", "warn"),
+                            unsafe_allow_html=True)
 
             label = rep.get("label") or ""
             effect = rep.get("effect") or ""
             if label:
                 st.markdown(f"**修复动作**：{label}" + (f" —— {effect}" if effect else ""))
 
-            c_before, c_after = st.columns(2, gap="small")
+            c_before, c_after = layout.split("even")
             with c_before:
-                st.markdown("修复前")
+                st.caption("修复前（论文原值）")
                 st.json(_jsonable(getattr(f, "before", {}) or {}))
             with c_after:
-                st.markdown("修复后" if enabled else "修复后（修复已关闭）")
+                st.caption("修复后" if enabled else "修复后（修复已关闭，回落为 ✕ 偏差）")
                 st.json(_jsonable(getattr(f, "after", {}) or {}))
 
             if switch:

@@ -12,7 +12,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from ui.theme import attribute_colors, echarts_theme, echarts_tooltip, finish, palette
+from ui.theme import (SENTIMENT, attribute_colors, echarts_theme, echarts_tooltip,
+                      finish, palette)
 
 # ------------------------------------------------------------------ 排行条形图
 def rank_bars(df: pd.DataFrame, x: str, y: str = "属性", color: str | None = None,
@@ -23,19 +24,21 @@ def rank_bars(df: pd.DataFrame, x: str, y: str = "属性", color: str | None = N
     if color is None:
         fig.add_trace(go.Bar(
             y=df[y], x=df[x], orientation="h",
-            marker_color=[colors.get(v, "#60A5FA") for v in df[y]],
+            marker_color=[colors.get(v, palette(mode)["brand"]) for v in df[y]],
             text=df[x].round(4) if pd.api.types.is_float_dtype(df[x]) else df[x],
             textposition="outside", hoverinfo="text",
             hovertext=df[hover] if hover else None, name=x))
     else:
         groups = df[color].unique()
-        palette_map = {"论文基准": "#64748B", "当前场景": "#4F46E5", "实时复算": "#22D3EE",
-                       "论文": "#64748B", "复算": "#22D3EE"}
+        pal = palette(mode)
+        # 语义色：论文口径用弱化色，复算口径用主色/次色，随明暗主题切换
+        palette_map = {"论文基准": pal["muted"], "当前场景": pal["brand"], "实时复算": pal["brand2"],
+                       "论文": pal["muted"], "复算": pal["brand2"]}
         for g in groups:
             sub = df[df[color] == g]
             fig.add_trace(go.Bar(
                 y=sub[y], x=sub[x], orientation="h", name=str(g),
-                marker_color=palette_map.get(str(g), "#4F46E5"),
+                marker_color=palette_map.get(str(g), pal["brand"]),
                 text=sub[x].round(4) if pd.api.types.is_float_dtype(sub[x]) else sub[x],
                 textposition="outside"))
         fig.update_layout(barmode=barmode)
@@ -49,7 +52,7 @@ def radar(series: list[dict], labels: list[str], mode: str = "dark",
           height: int = 400) -> go.Figure:
     """series: [{'name':..., 'values':[...6]}]"""
     colors = attribute_colors()
-    attr_colors = list(colors.get(l, "#60A5FA") for l in labels)
+    attr_colors = list(colors.get(l, palette(mode)["brand"]) for l in labels)
     fig = go.Figure()
     for i, s in enumerate(series):
         fig.add_trace(go.Scatterpolar(
@@ -107,7 +110,7 @@ def sr_scatter(res, mode: str = "dark", height: int = 420) -> go.Figure:
     fig.add_trace(go.Scatter(
         x=S, y=R, mode="markers+text", text=attrs, textposition="top center",
         marker=dict(size=14 + 46 * (Q - Q.min()) / max(float(Q.max() - Q.min()), 1e-9),
-                    color=[colors.get(a, "#60A5FA") for a in attrs],
+                    color=[colors.get(a, palette(mode)["brand"]) for a in attrs],
                     line=dict(width=1.5, color=palette(mode)["text"])),
         customdata=np.stack([Q, res.Pxi], axis=-1),
         hovertemplate="属性 %{text}<br>S=%{x:.4f} · R=%{y:.4f}<br>"
@@ -130,7 +133,7 @@ def quadrant_chart(isa: dict, mode: str = "dark", height: int = 440) -> go.Figur
     fig.add_trace(go.Scatter(
         x=rec["重要性"], y=rec["满意度"], mode="markers+text",
         text=rec["属性"], textposition="top center",
-        marker=dict(size=18, color=[colors.get(a, "#60A5FA") for a in rec["属性"]],
+        marker=dict(size=18, color=[colors.get(a, palette(mode)["brand"]) for a in rec["属性"]],
                     line=dict(width=1.5, color=palette(mode)["text"])),
         customdata=np.stack([rec["象限"], rec["Δ重要性"], rec["Δ满意度"]], axis=-1),
         hovertemplate="属性 %{text}<br>重要性 %{x:.3f} · 满意度 %{y:.3f}"
@@ -139,15 +142,16 @@ def quadrant_chart(isa: dict, mode: str = "dark", height: int = 440) -> go.Figur
     fig.add_hline(y=ym, line_dash="dash", line_color=palette(mode)["muted"], line_width=1)
     xr = float(rec["重要性"].max() - rec["重要性"].min()) or 1.0
     yr = float(rec["满意度"].max() - rec["满意度"].min()) or 1.0
+    pal = palette(mode)
     ann = [
         dict(x=xm + 0.45 * xr, y=ym + 0.42 * yr, text="保持区（高重要·高满意）", showarrow=False,
-             font=dict(size=11, color="#34D399")),
+             font=dict(size=11, color=pal["ok_fg"])),
         dict(x=xm - 0.45 * xr, y=ym + 0.42 * yr, text="机会区（低重要·高满意）", showarrow=False,
-             font=dict(size=11, color="#60A5FA")),
+             font=dict(size=11, color=pal["brand_fg"])),
         dict(x=xm + 0.45 * xr, y=ym - 0.45 * yr, text="改进区（高重要·低满意）", showarrow=False,
-             font=dict(size=11, color="#F87171")),
+             font=dict(size=11, color=pal["bad_fg"])),
         dict(x=xm - 0.45 * xr, y=ym - 0.45 * yr, text="低优先级区（低重要·低满意）", showarrow=False,
-             font=dict(size=11, color="#94A3B8")),
+             font=dict(size=11, color=pal["muted_fg"])),
     ]
     fig.update_layout(xaxis_title="重要性（论文表5.20 / 图5.10）",
                       yaxis_title="满意度（李克特 1-5）", annotations=ann)
@@ -164,7 +168,7 @@ def trend_line(df: pd.DataFrame, mode: str = "dark", height: int = 340) -> go.Fi
 
 def sentiment_hist(df: pd.DataFrame, mode: str = "dark", height: int = 300) -> go.Figure:
     fig = go.Figure(go.Histogram(
-        x=df["final_sentiment"], nbinsx=60, marker_color="#4F46E5",
+        x=df["final_sentiment"], nbinsx=60, marker_color=palette(mode)["brand"],
         hovertemplate="情感值 %{x}<br>条数 %{y}<extra></extra>"))
     fig.update_layout(bargap=0.06)
     fig.update_xaxes(title="VADER 情感值")
@@ -176,11 +180,12 @@ def sentiment_bars_by_attr(df: pd.DataFrame, mode: str = "dark", height: int = 3
     colors = attribute_colors()
     fig = go.Figure()
     fig.add_trace(go.Bar(name="正面", x=df["属性"], y=df["正向"],
-                         marker_color="#10B981"))
-    fig.add_trace(go.Bar(name="负面", x=df["属性"], y=df["负向"], marker_color="#EF4444"))
+                         marker_color=SENTIMENT["positive"]))
+    fig.add_trace(go.Bar(name="负面", x=df["属性"], y=df["负向"],
+                         marker_color=SENTIMENT["negative"]))
     fig.add_trace(go.Scatter(name="情感均值", x=df["属性"], y=df["情感均值"] * 0 + df["正向"] * 0.02,
                              yaxis="y2", mode="lines+markers",
-                             line=dict(color="#60A5FA", width=2),
+                             line=dict(color=palette(mode)["brand"], width=2),
                              customdata=np.stack([df["情感均值"], df["论文基准情感"]], axis=-1),
                              hovertemplate="%{x}<br>复算均值 %{customdata[0]:.4f}"
                                            " · 论文 %{customdata[1]:.4f}<extra></extra>"))
@@ -245,7 +250,7 @@ def hbar_simple(labels: list[str], values: list[float], mode: str = "dark",
     cmap = color_map or attribute_colors()
     fig = go.Figure(go.Bar(
         y=labels, x=values, orientation="h",
-        marker_color=[cmap.get(l, "#4F46E5") for l in labels],
+        marker_color=[cmap.get(l, palette(mode)["brand"]) for l in labels],
         text=[round(float(v), 4) for v in values], textposition="outside",
         hovertemplate="%{y}: %{x:.4f}<extra></extra>"))
     fig.update_yaxes(autorange="reversed", title="")
@@ -257,7 +262,7 @@ def donut(labels: list[str], values: list[float], mode: str = "dark",
     cmap = attribute_colors()
     fig = go.Figure(go.Pie(
         labels=labels, values=values, hole=0.58,
-        marker=dict(colors=[cmap.get(l, "#64748B") for l in labels]),
+        marker=dict(colors=[cmap.get(l, palette(mode)["muted"]) for l in labels]),
         textinfo="label+percent", hovertemplate="%{label}: %{value} (%{percent})<extra></extra>"))
     fig.update_layout(showlegend=False)
     return finish(fig, mode, height=height)
