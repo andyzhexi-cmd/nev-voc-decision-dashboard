@@ -33,10 +33,43 @@ from ui.components import (advice_card, audit_badge, callout, kpi_row, legend_ht
 GUIDE_STYLE = """
 <style>
 .ob-intro{font-size:14.5px;line-height:1.9;color:var(--text);margin:2px 0 14px;}
-.ob-layer{display:flex;gap:14px;align-items:flex-start;padding:4px 0 6px;}
-.ob-bar{flex:0 0 5px;min-height:52px;border-radius:4px;background:var(--brand);}
-.ob-lname{font-size:14.5px;font-weight:700;color:var(--text);margin-bottom:7px;}
-.ob-lname em{font-style:normal;font-size:12px;font-weight:500;color:var(--muted);margin-left:8px;}
+
+/* ---- 架构图：L1→L5 竖向栈（节点 + 导轨 + 卡片） ---- */
+.arch{margin:2px 0 6px;}
+.arch-item{display:grid;grid-template-columns:46px minmax(0,1fr);gap:14px;align-items:stretch;}
+.arch-rail{position:relative;display:flex;justify-content:center;}
+.arch-dot{width:32px;height:32px;border-radius:50%;border:1.5px solid var(--brand);
+  background:var(--panel-alt);color:var(--brand);
+  font-family:var(--font-mono,"SFMono-Regular",Menlo,monospace);font-size:11.5px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;letter-spacing:.03em;}
+.arch-item:not(:last-child) .arch-rail::after{content:"";position:absolute;left:50%;top:34px;
+  bottom:-14px;width:2px;transform:translateX(-50%);border-radius:2px;
+  background:linear-gradient(180deg,var(--brand),var(--border));}
+.arch-card{background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--brand);
+  border-radius:14px;padding:13px 16px 14px;min-width:0;}
+.arch-item.core .arch-card{border-left-color:var(--brand2);background:var(--panel-alt);}
+.arch-item.core .arch-dot{background:linear-gradient(135deg,var(--brand),var(--brand2));
+  border-color:transparent;color:white;}
+.arch-head{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;}
+.arch-name{font-size:14.5px;font-weight:700;color:var(--text);}
+.arch-hint{font-family:var(--font-mono,"SFMono-Regular",Menlo,monospace);font-size:11.3px;
+  color:var(--muted);word-break:break-all;}
+.arch-tag{margin-left:auto;font-size:11px;font-weight:650;color:var(--brand);
+  background:var(--panel-alt);border:1px solid var(--brand);border-radius:999px;padding:2px 9px;
+  white-space:nowrap;}
+.arch-item.core .arch-tag{background:var(--panel);color:var(--brand2);border-color:var(--brand2);}
+.arch-duty{font-size:12.4px;color:var(--muted);margin-top:5px;line-height:1.7;}
+.arch-files{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+  gap:8px 14px;margin-top:10px;}
+.arch-file{background:var(--panel-alt);border:1px solid var(--border);border-radius:10px;
+  padding:7px 10px;min-width:0;}
+.arch-item.core .arch-file{background:var(--panel);}
+.arch-file code{display:block;font-family:var(--font-mono,"SFMono-Regular",Menlo,monospace);
+  font-size:11.6px;color:var(--brand);line-height:1.5;word-break:break-all;}
+.arch-file span{display:block;font-size:11.7px;color:var(--muted);margin-top:3px;line-height:1.6;}
+.arch-flow{display:flex;align-items:center;gap:8px;margin:14px 0 2px 60px;
+  font-size:11.8px;color:var(--muted);letter-spacing:.06em;}
+.arch-flow::after{content:"";flex:1;height:1px;background:var(--border);}
 .ob-file{font-size:12.6px;line-height:1.95;color:var(--text);}
 .ob-file code{font-size:11.8px;background:var(--panel-alt);color:var(--brand);
   padding:1px 6px;border-radius:6px;border:1px solid var(--border);}
@@ -74,26 +107,32 @@ ROUTES: list[dict] = [
      "body": "拿走结果：ISA 改进四象限、四方法对比、审计面板，一键导出 Excel / Markdown / PDF。"},
 ]
 
-#: 五层架构（自上而下）
+#: 五层架构（自上而下）：code 层号 / duty 一句话职责 / core 标注核心层
 LAYERS: list[dict] = [
-    {"name": "数据层", "hint": "services/* 采集与加工", "op": 1.0,
+    {"code": "L1", "name": "数据层", "duty": "采集 → 清洗 → 分词 → 属性聚类 → 双模型情感",
+     "hint": "services/* 采集与加工",
      "files": [("services/data_ingest", "导入 CSV / 生成仿真数据"),
                ("services/preprocess", "清洗、去重、jieba 分词"),
                ("services/aspect_mining", "TF-IDF + KMeans 属性聚类"),
                ("services/sentiment", "VADER × 朴素贝叶斯 双模型情感")]},
-    {"name": "服务层", "hint": "services/{data_store, features, report}", "op": 0.8,
+    {"code": "L2", "name": "服务层", "duty": "中间层读写 · 视图数据契约 · 报告生成",
+     "hint": "services/{data_store, features, report}",
      "files": [("services/data_store.py", "CSV→parquet 中间层与阶段状态"),
                ("services/features.py", "筛选后的聚合指标（视图数据契约）"),
                ("services/report.py", "Excel / Markdown / PDF 报告生成")]},
-    {"name": "算法层", "hint": "core/algorithm/*（零 Streamlit 依赖，41 项单测覆盖）", "op": 0.62,
+    {"code": "L3", "name": "算法层", "core": True, "tag": "核心 · 零 Streamlit 依赖",
+     "duty": "PLTS-VIKOR 主方法 · 权重融合 · 敏感性与 9 项一致性审计",
+     "hint": "core/algorithm/*（41 项单测覆盖）",
      "files": [("core/algorithm/plts.py", "PLTS 定义、补全与列归一化"),
                ("core/algorithm/{ahp, dematel, weights}", "主观权重与关联权重及融合"),
                ("core/algorithm/vikor.py", "PLTS-VIKOR 主方法与论文基准"),
                ("core/algorithm/{sensitivity, benchmarks}", "敏感性与四方法对照"),
                ("core/algorithm/{isa, audit}", "四象限与 9 项一致性审计")]},
-    {"name": "状态层", "hint": "state/store.py", "op": 0.46,
+    {"code": "L4", "name": "状态层", "duty": "唯一状态入口 · 可序列化 · 双主题持久化",
+     "hint": "state/store.py",
      "files": [("state/store.py", "主题 / 筛选 / 场景 / 覆盖值唯一入口")]},
-    {"name": "表现层", "hint": "ui/{layout, theme, components, views}", "op": 0.32,
+    {"code": "L5", "name": "表现层", "duty": "具名栅格 · 设计令牌 · 组件库 · 六个视图",
+     "hint": "ui/{layout, theme, components, views}",
      "files": [("ui/layout.py", "具名栅格 split 与统一 panel"),
                ("ui/theme.py", "设计令牌与明暗主题注入"),
                ("ui/components", "徽章 / KPI / 图表可复用组件"),
@@ -168,15 +207,29 @@ def _chain_html(steps: list[dict]) -> str:
     return '<div class="ob-chain">' + '<div class="ob-arrow">↓</div>'.join(nodes) + "</div>"
 
 
-def _layer_html(layer: dict) -> str:
-    """单层：左侧色条（透明度区分层级）+ 层名 + 文件路径清单。"""
-    files = "".join(
-        f'<div class="ob-file"><code>{p}</code><i> — {d}</i></div>'
-        for p, d in layer["files"])
-    return (
-        f'<div class="ob-layer"><div class="ob-bar" style="opacity:{layer["op"]}"></div>'
-        f'<div class="ob-body"><div class="ob-lname">{layer["name"]}'
-        f"<em>{layer['hint']}</em></div>{files}</div></div>")
+def _arch_html() -> str:
+    """五层架构栈：L1→L5 节点 + 导轨 + 卡片，整块单次渲染（栅格才不会被切开）。"""
+    items = []
+    for layer in LAYERS:
+        files = "".join(
+            f'<div class="arch-file"><code>{p}</code><span>{d}</span></div>'
+            for p, d in layer["files"])
+        tag = layer.get("tag") or f"模块 ×{len(layer['files'])}"
+        items.append(
+            '<div class="arch-item{core}">'
+            '<div class="arch-rail"><div class="arch-dot">{code}</div></div>'
+            '<div class="arch-card">'
+            '<div class="arch-head"><span class="arch-name">{name}</span>'
+            '<span class="arch-hint">{hint}</span>'
+            '<span class="arch-tag">{tag}</span></div>'
+            '<div class="arch-duty">{duty}</div>'
+            '<div class="arch-files">{files}</div>'
+            "</div></div>".format(
+                core=" core" if layer.get("core") else "",
+                code=layer["code"], name=layer["name"], hint=layer["hint"],
+                tag=tag, duty=layer["duty"], files=files))
+    flow = '<div class="arch-flow">自上而下逐层供给 → 汇入六视图</div>'
+    return '<div class="arch">' + "".join(items) + flow + "</div>"
 
 
 def _route_card(col, route: dict, index: int) -> None:
@@ -283,12 +336,9 @@ def render() -> None:
     # ------------------------------------------------------ 3. 产品组织架构
     section_header("产品组织架构", "五层分层，每层职责单一、可独立测试；自上而下逐层汇入页面",
                    tag="架构")
-    with layout.panel("分层结构", "路径 + 一句话职责（颜色由主题令牌驱动，随明暗切换）",
+    with layout.panel("分层结构", "L1 → L5：节点即层号，卡片里是该层的路径与一句话职责（明暗主题自动跟随）",
                       tag="ARCH"):
-        for i, layer in enumerate(LAYERS):
-            st.markdown(_layer_html(layer), unsafe_allow_html=True)
-            if i < len(LAYERS) - 1:
-                st.markdown('<div class="ob-arrow">↓</div>', unsafe_allow_html=True)
+        st.markdown(_arch_html(), unsafe_allow_html=True)
 
     # ------------------------------------------------------ 4. 两条数据链路
     section_header("两条数据链路", "论文基准链路 与 业务数据链路 并行，在「双口径对照」处汇合",

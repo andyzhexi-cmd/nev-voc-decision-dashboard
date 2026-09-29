@@ -48,6 +48,13 @@ def split(name: str) -> list:
     return st.columns(ratio, gap=gap)
 
 
+def cols(n: int) -> list:
+    """等分 n 列（KPI 行等动态场景的唯一入口，视图与组件都不得自己写 st.columns）。"""
+    if n <= 1:
+        return [st.container()]
+    return st.columns(n)
+
+
 # ------------------------------------------------------------------ 高度
 #: 图表高度档位（px）。只有这四个，保证纵向节奏一致。
 H = {"xs": 150, "s": 260, "m": 340, "l": 440}

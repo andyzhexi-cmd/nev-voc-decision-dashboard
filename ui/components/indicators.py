@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import streamlit as st
 
+from ui import layout
 from ui.theme import attribute_colors
 
 
@@ -32,8 +33,8 @@ def kpi_card(label: str, value: str, delta: str | None = None, hint: str | None 
 
 
 def kpi_row(cards: list[dict]) -> None:
-    """一行 KPI。cards: [{label, value, delta, hint, tone}]。"""
-    cols = st.columns(len(cards))
+    """一行 KPI。cards: [{label, value, delta, hint, tone}]。列一律走 layout.cols。"""
+    cols = layout.cols(len(cards))
     for c, card in zip(cols, cards):
         with c:
             kpi_card(card.get("label", ""), card.get("value", ""),

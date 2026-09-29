@@ -61,6 +61,8 @@
 | 附：明暗主题不完整 | `theme.sync()` 回写 Streamlit 主题配置（表格/代码块跟随）+ `:root` 覆盖内建组件令牌（滑块/单选/进度条跟随），徽章与面板颜色全部令牌化；选择持久化到 `data/ui_prefs.json` | `ui/theme.py`、`state/store.py` |
 | 附：真实数据接入底座 | 编码/分隔符嗅探、列别名映射、列错位检测、干跑体检报告、备份后原子落盘、模板与规范 | `services/data_ingest/importer.py`、`tests/test_ingest.py`（10 项）、`docs/数据接入规范.md` |
 | 追加① 真实数据接入（页面） | 「数据管理 → 导入真实评论」：上传（CSV/TSV/TXT/JSON/XLSX）→ 5 列可改映射 → 干跑体检与前 10 行预览 → 校验失败禁用确认 → 覆盖前自动备份落盘 → 缓存失效并指引重跑流水线；标准模板下载 + 最近备份列表 | `ui/views/data_manager.py` |
+| 追加② 决策矩阵可编辑化 | AHP 只开上三角（对角线锁定、互反自动回填）+ 实时 CR/诊断与 hints、反推一致性矩阵；DEMATEL 走数值投影诊断、应用时回写 lN 字符串；PLTS 聚合体检 + `build_decision_matrix` 两种补全口径试算；w3 一键归一化与逐项 Δ；`matrix_diff` 摘要 + Δ 热力图；三预设 + 撤销/重做；JSON 导出与白名单校验导入；提交时同步 `use_paper_weights`（默认「论文校准」行为逐字节不变） | `ui/views/simulator.py`、`tests/test_matrix_editor.py`（8 项） |
+| 追加③ 架构图审美重构 | 「产品导览 → 产品组织架构」由色条列表改为 **L1→L5 竖向栈**：层号节点 + 渐变导轨 + 卡片（层名/路径 mono/职责/模块数 chip），核心层（算法层）用渐变节点 + 反色卡片高亮，文件走 auto-fit 网格自适应宽度；整块单次渲染，明暗主题全令牌 | `ui/views/onboarding.py`（`_arch_html` + `.arch-*`） |
 
-验收：六视图 × 明暗双主题 AppTest 无异常；`pytest tests/` 全绿（74 项）；`scripts_syntax_check.py` 通过；
-`st.columns` / `use_container_width` / 硬编码色值 / 手工空行四类 grep 计数均为 0。
+验收：六视图 × 明暗双主题 AppTest 共 12 组无异常（`TOTAL_BAD = 0`）；`pytest tests/` 全绿（82 项）；`scripts_syntax_check.py` 通过；
+`st.columns` / `use_container_width` / 硬编码色值 / 手工空行四类 grep 在 `app.py` + 六视图 + 组件中计数均为 0（仅 `ui/layout.py` 作为唯一列切分入口保留字面量）。
